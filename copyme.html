@@ -637,7 +637,7 @@
     // collect reference definitions ([id]: url), anywhere in the block, and drop them from normal flow
     const refs = { __blockId: blockId || "x" };
     const order = [];
-    const defRe = /^\[([^\]]+)\]:\s*(\S+)\s*$/;
+    const defRe = /^ {0,3}\[([^\]]+)\]:\s*(\S+)\s*$/;
     const lines = [];
     rawLines.forEach((line) => {
       const d = line.match(defRe);
@@ -656,27 +656,27 @@
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
-      const h = line.match(/^(#{1,6})\s+(.*)$/);
+      const h = line.match(/^ {0,3}(#{1,6})\s+(.*)$/);
       if (h) {
         closeList();
         html += `<h${h[1].length}>${mdInline(h[2], refs)}</h${h[1].length}>`;
         i++; continue;
       }
-      if (/^>\s?/.test(line)) {
+      if (/^ {0,3}>\s?/.test(line)) {
         closeList();
         const quoteLines = [];
-        while (i < lines.length && /^>\s?/.test(lines[i])) { quoteLines.push(lines[i].replace(/^>\s?/, "")); i++; }
+        while (i < lines.length && /^ {0,3}>\s?/.test(lines[i])) { quoteLines.push(lines[i].replace(/^ {0,3}>\s?/, "")); i++; }
         html += `<blockquote>${quoteLines.map((l) => mdInline(l, refs)).join("<br>")}</blockquote>`;
         continue;
       }
-      if (/^[-*]\s+/.test(line)) {
+      if (/^ {0,3}[-*]\s+/.test(line)) {
         if (listType !== "ul") { closeList(); html += "<ul>"; listType = "ul"; }
-        html += `<li>${mdInline(line.replace(/^[-*]\s+/, ""), refs)}</li>`;
+        html += `<li>${mdInline(line.replace(/^ {0,3}[-*]\s+/, ""), refs)}</li>`;
         i++; continue;
       }
-      if (/^\d+\.\s+/.test(line)) {
+      if (/^ {0,3}\d+\.\s+/.test(line)) {
         if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
-        html += `<li>${mdInline(line.replace(/^\d+\.\s+/, ""), refs)}</li>`;
+        html += `<li>${mdInline(line.replace(/^ {0,3}\d+\.\s+/, ""), refs)}</li>`;
         i++; continue;
       }
       closeList();
