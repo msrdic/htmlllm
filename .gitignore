@@ -1,0 +1,8 @@
+# Allowlist: only the reusable template/mechanism is tracked here.
+# Every doc instance (doc.json, doc.html, any newdoc.* pair a user creates
+# from copyme.html) is personal working data and stays untracked.
+*
+!.gitignore
+!copyme.html
+!theme.css
+!CLAUDE.md

@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>thread-doc</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #37352f;
+    --muted: #9b9a97;
+    --border: #ececea;
+    --accent: #2f6fed;
+    --hover-bg: rgba(55, 53, 47, 0.04);
+    --hover-bg-strong: rgba(55, 53, 47, 0.09);
+    --pending: #dfab01;
+    --pending-edit: #e0703a;
+    --resolved: #2f9e5f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191919;
+      --fg: #e9e9e7;
+      --muted: #808080;
+      --border: #2c2c2c;
+      --accent: #6ea8fe;
+      --hover-bg: rgba(255, 255, 255, 0.055);
+      --hover-bg-strong: rgba(255, 255, 255, 0.09);
+      --pending: #e6c34d;
+      --pending-edit: #ef8b5f;
+      --resolved: #4cc383;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0;
+    flex-shrink: 0;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  #status {
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+  }
+  button { font: inherit; cursor: pointer; }
+  #connect-btn {
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--fg);
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+  #connect-btn:hover { background: var(--hover-bg); }
+  #new-doc-btn {
+    flex-shrink: 0;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--fg);
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+  #new-doc-btn:hover { background: var(--hover-bg); }
+  #help-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0;
+    line-height: 1;
+  }
+  #help-btn:hover { background: var(--hover-bg); color: var(--fg); border-color: var(--accent); }
+
+  #help-dialog {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0;
+    max-width: 560px;
+    width: 90vw;
+    max-height: 80vh;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  #help-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+  #help-dialog .help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+  #help-dialog h2 { font-size: 15px; margin: 0; }
+  #help-close {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  #help-close:hover { background: var(--hover-bg); color: var(--fg); }
+  #help-dialog section { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  #help-dialog section:last-child { border-bottom: none; }
+  #help-dialog h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .help-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .help-table td { padding: 6px 0; vertical-align: top; }
+  .help-table td:first-child { width: 42%; white-space: nowrap; padding-right: 14px; color: var(--fg); }
+  .help-table td:last-child { color: var(--muted); white-space: normal; }
+  .help-table code { background: var(--hover-bg-strong); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; white-space: nowrap; }
+  .help-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
+  .tone-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .tone-btn {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 11.5px;
+    padding: 5px 10px;
+  }
+  .tone-btn + .tone-btn { border-left: 1px solid var(--border); }
+  .tone-btn.active { background: var(--accent); color: white; }
+  .tone-btn:not(.active):hover { background: var(--hover-bg); }
+
+  #page {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 56px 40px 60vh;
+  }
+  #connect-gate {
+    text-align: center;
+    padding: 24px 20px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 60px auto 0;
+  }
+  #connect-gate p { font-size: 14px; margin: 8px 0 20px; }
+  .connect-gate-actions { display: flex; gap: 10px; justify-content: center; }
+  #connect-gate code { background: var(--hover-bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .hidden { display: none !important; }
+
+  #doc-area { display: flex; gap: 36px; align-items: flex-start; }
+  #toc-col {
+    flex: 0 0 190px;
+    position: sticky;
+    top: 70px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+  #left-col { flex: 1 1 620px; max-width: 640px; min-width: 0; min-height: 60vh; }
+  #right-col { flex: 1 1 320px; max-width: 340px; min-width: 240px; position: relative; }
+  #right-col-empty { color: var(--muted); font-size: 13px; padding-top: 6px; }
+
+  #toc-empty { color: var(--muted); font-size: 12.5px; }
+  .toc-list { display: flex; flex-direction: column; gap: 2px; }
+  .toc-item {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .toc-item:hover { background: var(--hover-bg); color: var(--fg); }
+  .toc-level-1 { font-weight: 600; color: var(--fg); }
+  .toc-level-2 { padding-left: 16px; }
+  .toc-level-3 { padding-left: 24px; }
+  .toc-level-4, .toc-level-5, .toc-level-6 { padding-left: 32px; }
+
+  #stats-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    z-index: 20;
+  }
+  #stats-counts { display: flex; gap: 16px; }
+  #stats-counts strong { color: var(--fg); font-weight: 600; }
+  #agent-ticker { display: flex; align-items: center; gap: 7px; transition: color .15s; }
+  #agent-ticker .ticker-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  #agent-ticker.working { color: var(--fg); }
+  #agent-ticker.working .ticker-dot {
+    background: var(--pending-edit);
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+
+  .block-wrap { position: relative; }
+  .block-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    margin: 0 -14px;
+    border-radius: 7px;
+  }
+  .block-row:hover { background: var(--hover-bg); }
+  .block {
+    flex: 1;
+    min-height: 1.6em;
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 2px 0;
+    text-align: justify;
+  }
+  .block.editing { text-align: left; }
+  .block:empty:before { content: attr(data-placeholder); color: var(--muted); }
+  .block:not(.editing) { cursor: text; }
+  .md-content h1, .md-content h2, .md-content h3, .md-content h4, .md-content h5, .md-content h6 { margin: .2em 0; font-weight: 600; line-height: 1.3; }
+  .md-content h1 { font-size: 1.6em; }
+  .md-content h2 { font-size: 1.35em; }
+  .md-content h3 { font-size: 1.15em; }
+  .md-content h4, .md-content h5, .md-content h6 { font-size: 1em; }
+  .md-content blockquote { margin: .3em 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--muted); }
+  .md-content code { background: var(--hover-bg-strong); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  .md-content ul, .md-content ol { margin: .2em 0; padding-left: 1.4em; }
+  .md-content a { color: var(--accent); }
+  .md-content a.md-ref-link { text-decoration: none; }
+  .md-content a.md-ref-link sup { color: var(--accent); font-weight: 600; }
+  .md-content a.md-ref-link sup::before { content: "["; }
+  .md-content a.md-ref-link sup::after { content: "]"; }
+  .md-content .md-refs {
+    margin-top: .5em;
+    padding-top: .4em;
+    border-top: 1px solid var(--border);
+    font-size: .82em;
+    color: var(--muted);
+  }
+  .md-content .md-ref { line-height: 1.6; }
+  .md-content .md-ref a { word-break: break-all; }
+  .icon-btn {
+    border: none;
+    background: none;
+    font-size: 12.5px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--hover-bg-strong); color: var(--fg); }
+  .count { font-size: 10px; background: var(--accent); color: white; border-radius: 8px; padding: 0 5px; line-height: 14px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pending); flex-shrink: 0; animation: pulse 1.4s infinite ease-in-out; }
+  .dot.edit { background: var(--pending-edit); }
+  .dot.unsaved { background: var(--muted); animation: none; }
+  .block-row.linked-highlight { background: var(--hover-bg-strong); }
+  .thread-card.linked-highlight { background: var(--hover-bg-strong); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+  .block-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 3px 14px 8px;
+    margin: 0 -14px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .thread-card {
+    background: var(--hover-bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    transition: background-color .15s;
+  }
+  .thread-card.flash { animation: flash-bg .9s ease; }
+  @keyframes flash-bg { 0% { background: var(--hover-bg-strong); } 100% { background: var(--hover-bg); } }
+
+  .comment { padding: 6px 0; }
+  .comment-meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 7px; align-items: baseline; margin-bottom: 2px; }
+  .comment-meta .who { font-weight: 600; color: var(--fg); }
+  .comment-meta .who.claude { color: var(--accent); }
+  .comment-text { font-size: 13.5px; white-space: pre-wrap; }
+  .comment-actions { display: flex; gap: 10px; margin-top: 2px; }
+  .replies { margin: 4px 0 0 12px; border-left: 2px solid var(--border); padding-left: 10px; }
+  .thread-link { font-size: 11.5px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+  .thread-link:hover { color: var(--fg); }
+  .thread-link.resolve-btn:hover { color: var(--resolved); }
+
+  .resolved-group { margin-top: 8px; }
+  .resolved-group summary { font-size: 11.5px; color: var(--muted); cursor: pointer; }
+  .resolved-group[open] summary { margin-bottom: 6px; }
+  .resolved-group .comment { opacity: .65; }
+
+  .compose { margin-top: 8px; display: none; }
+  .compose.open { display: block; }
+  textarea.thread-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    resize: none;
+    font: inherit;
+    font-size: 13px;
+    color: var(--fg);
+    padding: 4px 0;
+    min-height: 40px;
+  }
+  textarea.thread-input:focus { outline: none; border-bottom-color: var(--accent); }
+  .compose-actions { display: flex; gap: 10px; margin-top: 5px; }
+  .compose-actions button.primary { padding: 4px 12px; font-size: 12px; }
+  .empty-hint { color: var(--muted); font-size: 14px; margin-bottom: 8px; pointer-events: none; }
+
+  .insert-gap {
+    position: relative;
+    height: 18px;
+    margin: -13px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+  .insert-gap .insert-btn {
+    opacity: 0;
+    transition: opacity .12s;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .insert-gap:hover .insert-btn, .insert-gap.always-visible .insert-btn { opacity: 1; }
+  .insert-gap .insert-btn:hover { background: var(--hover-bg-strong); color: var(--fg); border-color: var(--accent); }
+  .insert-gap.composing { margin: 4px 0; }
+  .insert-gap.composing .block { flex: 1; }
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<header>
+  <h1>thread-doc</h1>
+  <span id="status">not connected</span>
+  <div class="tone-toggle">
+    <button class="tone-btn" data-tone="brief">Brief</button>
+    <button class="tone-btn" data-tone="explanatory">Explanatory</button>
+  </div>
+  <button id="connect-btn">Connect doc.json</button>
+  <button id="new-doc-btn" title="Create a new, empty JSON data file and connect it">New doc…</button>
+  <button id="help-btn" title="Help">?</button>
+</header>
+
+<dialog id="help-dialog">
+  <div class="help-header">
+    <h2>Formatting &amp; shortcuts</h2>
+    <button id="help-close" title="Close">×</button>
+  </div>
+
+  <section>
+    <h3>Markdown</h3>
+    <table class="help-table">
+      <tr><td><code># / ## / ###</code></td><td>Headings (also populate the TOC on the left)</td></tr>
+      <tr><td><code>**bold**</code></td><td>Bold</td></tr>
+      <tr><td><code>*italic*</code></td><td>Italic (no <code>_underscore_</code> form — avoids breaking <code>snake_case</code> names)</td></tr>
+      <tr><td><code>~~strike~~</code></td><td>Strikethrough</td></tr>
+      <tr><td><code>++underline++</code></td><td>Underline (not standard Markdown, but <code>_underscore_</code> was ruled out for the same identifier-collision reason)</td></tr>
+      <tr><td><code>`code`</code></td><td>Inline code — safe for function/variable names, e.g. <code>verify_implement()</code></td></tr>
+      <tr><td><code>- item</code> / <code>1. item</code></td><td>Bulleted / numbered list</td></tr>
+      <tr><td><code>&gt; text</code></td><td>Blockquote</td></tr>
+      <tr><td><code>[text](url)</code></td><td>Link</td></tr>
+      <tr><td><code>[text][1]</code> or <code>[1]</code><br><code>[1]: url</code></td><td>Reference-style link — cite as <code>[1]</code> anywhere in the paragraph, define <code>[1]: url</code> on its own line; renders as a small numbered reference list at the bottom of that paragraph</td></tr>
+    </table>
+    <p class="help-note">Markdown works the same way in comments as in paragraphs.</p>
+  </section>
+
+  <section>
+    <h3>Editing</h3>
+    <table class="help-table">
+      <tr><td>Click a paragraph</td><td>Enter edit mode (shows raw markdown)</td></tr>
+      <tr><td><code>Enter</code></td><td>Save and exit edit mode</td></tr>
+      <tr><td><code>Shift+Enter</code></td><td>Line break within the same paragraph</td></tr>
+      <tr><td><code>Escape</code></td><td>Discard changes and exit edit mode</td></tr>
+      <tr><td>Hover between paragraphs</td><td>A <code>+</code> appears to insert a new paragraph there</td></tr>
+      <tr><td>Click empty space below the doc</td><td>Opens the "add paragraph at the end" spot</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h3>Comments &amp; discussion</h3>
+    <table class="help-table">
+      <tr><td>💬 icon on a paragraph</td><td>Start or view its comment thread, in the right-hand column</td></tr>
+      <tr><td>Click a comment card</td><td>Jumps back to (and highlights) the paragraph it's attached to</td></tr>
+      <tr><td><code>resolve</code> / <code>reopen</code></td><td>Collapses a thread once it's settled; resolved threads stop me from reacting further</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h3>Other</h3>
+    <table class="help-table">
+      <tr><td>Dots next to a paragraph</td><td>Gray = unsaved edit in progress. Yellow/orange pulsing = waiting for Claude to react.</td></tr>
+      <tr><td>Brief / Explanatory toggle</td><td>Controls how verbose my replies are</td></tr>
+      <tr><td>Bottom bar</td><td>Live word / paragraph / comment counts</td></tr>
+      <tr><td>Left column</td><td>Table of contents, generated from headings, sticky while you scroll</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h3>Theming</h3>
+    <p class="help-note">Edit <code>theme.css</code> in this folder directly — it's linked as a normal stylesheet and starts out as a live copy of the default colors (<code>--bg</code>, <code>--fg</code>, <code>--muted</code>, <code>--border</code>, <code>--accent</code>, <code>--hover-bg</code>, <code>--hover-bg-strong</code>, <code>--pending</code>, <code>--pending-edit</code>, <code>--resolved</code>, plus a dark-mode block). Change any value and reload the page to see it. Shared across every doc you make from <code>copyme.html</code>, since they all link the same relative <code>theme.css</code>.</p>
+  </section>
+</dialog>
+
+<div id="page">
+  <div id="connect-gate">
+    <p>Pick the <code>doc.json</code> file that lives next to this HTML file. You'll grant write access once; after that, edits and Claude's replies sync straight to disk.</p>
+    <div class="connect-gate-actions">
+      <button class="primary" id="connect-btn-2">Connect existing doc.json</button>
+      <button id="new-doc-btn-2">Start a new doc…</button>
+    </div>
+  </div>
+
+  <div id="doc-area" class="hidden">
+    <div id="toc-col"></div>
+    <div id="left-col">
+      <div id="blocks"></div>
+    </div>
+    <div id="right-col"></div>
+  </div>
+</div>
+
+<div id="stats-bar" class="hidden">
+  <div id="agent-ticker"><span class="ticker-dot"></span><span class="ticker-text">Idle — watching for changes</span></div>
+  <div id="stats-counts"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Keyed by this HTML file's own path so copies (copyme.html -> newdoc.html,
+  // etc.) each remember their own connected .json — never sharing a stored
+  // handle even if the browser happens to partition file:// storage loosely.
+  const HANDLE_KEY = "docHandle:" + location.pathname;
+  let fileHandle = null;
+  let lastKnownRev = -1;
+  let openComposers = new Set(); // paragraph ids with an open "new comment" box
+  let openReplies = new Set();   // comment ids with an open reply box
+  let pollTimer = null;
+  let latestData = { rev: 0, settings: { tone: "explanatory" }, paragraphs: [] };
+  let syncScheduled = false;
+
+  const statusEl = document.getElementById("status");
+  const gateEl = document.getElementById("connect-gate");
+  const docAreaEl = document.getElementById("doc-area");
+  const leftColEl = document.getElementById("left-col");
+  const rightColEl = document.getElementById("right-col");
+  const tocColEl = document.getElementById("toc-col");
+  const blocksEl = document.getElementById("blocks");
+  const statsBarEl = document.getElementById("stats-bar");
+  const statsCountsEl = document.getElementById("stats-counts");
+  const tickerEl = document.getElementById("agent-ticker");
+  const toneButtons = Array.from(document.querySelectorAll(".tone-btn"));
+  let lastKnownStatusAt = 0;
+
+  // ---------- IndexedDB handle persistence ----------
+  function idbGet(key) {
+    return new Promise((resolve) => {
+      const req = indexedDB.open("thread-doc", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("handles");
+      req.onsuccess = () => {
+        const tx = req.result.transaction("handles", "readonly");
+        const getReq = tx.objectStore("handles").get(key);
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    });
+  }
+  function idbSet(key, value) {
+    return new Promise((resolve) => {
+      const req = indexedDB.open("thread-doc", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("handles");
+      req.onsuccess = () => {
+        const tx = req.result.transaction("handles", "readwrite");
+        tx.objectStore("handles").put(value, key);
+        tx.oncomplete = () => resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  }
+
+  // ---------- id / time helpers ----------
+  function makeId(prefix) {
+    return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+  }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function placeCaretAtEnd(el) {
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  // ---------- minimal markdown renderer (headers, bold/italic, code, links, lists, quotes) ----------
+  function mdInline(text, refs) {
+    let t = escapeHtml(text);
+    // Protect code spans first and restore them last, so backticked content
+    // (e.g. `verify_implement()`, `*args, **kwargs`) can't be corrupted by
+    // the emphasis/link regexes below matching characters inside it.
+    const codeSpans = [];
+    t = t.replace(/`([^`]+)`/g, (m, code) => {
+      codeSpans.push(code);
+      return "\u0000" + (codeSpans.length - 1) + "\u0000";
+    });
+    t = t.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+    // Underline has no CommonMark syntax; using ++text++ since Markdown's own
+    // _underscore_ forms are already dropped (identifier-collision footgun)
+    // and ++ isn't used by anything else here.
+    t = t.replace(/\+\+([^+]+)\+\+/g, "<u>$1</u>");
+    // Asterisk-only emphasis (no _underscore_ form) — underscores are common
+    // inside identifiers/function names, so single-underscore italics is a
+    // classic snake_case footgun; dropping it avoids that ambiguity entirely.
+    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    // inline link: [text](url)
+    t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, label, url) => {
+      const safeUrl = /^https?:\/\//i.test(url) ? url : "#";
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    });
+    // reference-style: [text][id]
+    t = t.replace(/\[([^\]]+)\]\[([^\]]*)\]/g, (m, label, id) => {
+      const key = (id || label).trim().toLowerCase();
+      const url = refs && refs[key];
+      if (!url) return m;
+      return `<a class="md-ref-link" href="#ref-${escapeHtml(key)}-${refs.__blockId}" title="${escapeHtml(url)}">${label}<sup>${escapeHtml(key)}</sup></a>`;
+    });
+    // shortcut reference: [id] alone, resolved against a same-block definition
+    t = t.replace(/\[([^\]]+)\]/g, (m, id) => {
+      const key = id.trim().toLowerCase();
+      const url = refs && refs[key];
+      if (!url) return m;
+      return `<a class="md-ref-link" href="#ref-${escapeHtml(key)}-${refs.__blockId}" title="${escapeHtml(url)}"><sup>${escapeHtml(id)}</sup></a>`;
+    });
+    // restore protected code spans now that no other regex can touch them
+    t = t.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codeSpans[Number(i)]}</code>`);
+    return t;
+  }
+  function renderMarkdown(src, blockId) {
+    const rawLines = String(src || "").split("\n");
+
+    // collect reference definitions ([id]: url), anywhere in the block, and drop them from normal flow
+    const refs = { __blockId: blockId || "x" };
+    const order = [];
+    const defRe = /^\[([^\]]+)\]:\s*(\S+)\s*$/;
+    const lines = [];
+    rawLines.forEach((line) => {
+      const d = line.match(defRe);
+      if (d) {
+        const key = d[1].trim().toLowerCase();
+        refs[key] = d[2];
+        order.push(key);
+      } else {
+        lines.push(line);
+      }
+    });
+
+    let html = "";
+    let listType = null;
+    function closeList() { if (listType) { html += `</${listType}>`; listType = null; } }
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const h = line.match(/^(#{1,6})\s+(.*)$/);
+      if (h) {
+        closeList();
+        html += `<h${h[1].length}>${mdInline(h[2], refs)}</h${h[1].length}>`;
+        i++; continue;
+      }
+      if (/^>\s?/.test(line)) {
+        closeList();
+        const quoteLines = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) { quoteLines.push(lines[i].replace(/^>\s?/, "")); i++; }
+        html += `<blockquote>${quoteLines.map((l) => mdInline(l, refs)).join("<br>")}</blockquote>`;
+        continue;
+      }
+      if (/^[-*]\s+/.test(line)) {
+        if (listType !== "ul") { closeList(); html += "<ul>"; listType = "ul"; }
+        html += `<li>${mdInline(line.replace(/^[-*]\s+/, ""), refs)}</li>`;
+        i++; continue;
+      }
+      if (/^\d+\.\s+/.test(line)) {
+        if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
+        html += `<li>${mdInline(line.replace(/^\d+\.\s+/, ""), refs)}</li>`;
+        i++; continue;
+      }
+      closeList();
+      html += line.trim() === "" ? "<br>" : `<div class="md-line">${mdInline(line, refs)}</div>`;
+      i++;
+    }
+    closeList();
+
+    if (order.length) {
+      html += `<div class="md-refs">` + order.map((key) => {
+        const url = refs[key];
+        const safeUrl = /^https?:\/\//i.test(url) ? url : "#";
+        return `<div class="md-ref" id="ref-${escapeHtml(key)}-${escapeHtml(refs.__blockId)}">[${escapeHtml(key)}] <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`;
+      }).join("") + `</div>`;
+    }
+    return html;
+  }
+
+  // ---------- file read/write ----------
+  async function readDoc() {
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    if (!text.trim()) return { rev: 0, settings: { tone: "explanatory" }, paragraphs: [] };
+    try {
+      const data = JSON.parse(text);
+      if (!data.settings) data.settings = { tone: "explanatory" };
+      return data;
+    } catch (e) {
+      console.error("doc.json parse error", e);
+      return { rev: 0, settings: { tone: "explanatory" }, paragraphs: [] };
+    }
+  }
+  async function writeDoc(data) {
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+  }
+
+  // read-modify-write against whatever is freshest on disk right now
+  async function mutate(mutatorFn, event) {
+    const data = await readDoc();
+    mutatorFn(data);
+    data.rev = (data.rev || 0) + 1;
+    data.lastEvent = { ...event, by: "browser", at: Date.now() };
+    await writeDoc(data);
+    lastKnownRev = data.rev;
+    latestData = data;
+    render(data);
+    setStatus("saved");
+  }
+
+  function findParagraph(data, id) {
+    return data.paragraphs.find((p) => p.id === id);
+  }
+  function findCommentDeep(comments, id) {
+    for (const c of comments) {
+      if (c.id === id) return c;
+      const found = findCommentDeep(c.replies || [], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // ---------- mutations ----------
+  async function addParagraph(text) {
+    if (!text.trim()) return;
+    const id = makeId("p");
+    await mutate((data) => {
+      data.paragraphs.push({
+        id,
+        text: text.trim(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        pendingChange: { type: "new", prevText: null, since: Date.now() },
+        comments: []
+      });
+    }, { type: "paragraph-added", paragraphId: id });
+  }
+  async function insertParagraphBefore(anchorId, text) {
+    if (!text.trim()) return;
+    const id = makeId("p");
+    await mutate((data) => {
+      const idx = data.paragraphs.findIndex((p) => p.id === anchorId);
+      const insertAt = idx === -1 ? data.paragraphs.length : idx;
+      data.paragraphs.splice(insertAt, 0, {
+        id,
+        text: text.trim(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        pendingChange: { type: "new", prevText: null, since: Date.now() },
+        comments: []
+      });
+    }, { type: "paragraph-added", paragraphId: id, before: anchorId });
+  }
+  async function editParagraph(id, text) {
+    if (!text.trim()) return;
+    await mutate((data) => {
+      const p = findParagraph(data, id);
+      if (!p) return;
+      const prevText = p.text;
+      p.text = text.trim();
+      p.updatedAt = Date.now();
+      p.pendingChange = { type: "edited", prevText, since: Date.now() };
+    }, { type: "paragraph-edited", paragraphId: id });
+  }
+  async function addComment(paragraphId, text, parentCommentId) {
+    if (!text.trim()) return;
+    const id = makeId("c");
+    await mutate((data) => {
+      const p = findParagraph(data, paragraphId);
+      if (!p) return;
+      const comment = {
+        id,
+        author: "user",
+        text: text.trim(),
+        createdAt: Date.now(),
+        needsAgent: true,
+        resolved: false,
+        replies: []
+      };
+      if (parentCommentId) {
+        const parent = findCommentDeep(p.comments, parentCommentId);
+        if (parent) parent.replies.push(comment);
+      } else {
+        p.comments.push(comment);
+      }
+    }, {
+      type: parentCommentId ? "reply-added" : "comment-added",
+      paragraphId,
+      commentId: id,
+      parentCommentId: parentCommentId || null
+    });
+  }
+  async function setResolved(paragraphId, commentId, resolved) {
+    await mutate((data) => {
+      const p = findParagraph(data, paragraphId);
+      if (!p) return;
+      const c = findCommentDeep(p.comments, commentId);
+      if (!c) return;
+      c.resolved = resolved;
+      if (resolved) {
+        (function clear(node) {
+          node.needsAgent = false;
+          (node.replies || []).forEach(clear);
+        })(c);
+      }
+    }, { type: resolved ? "comment-resolved" : "comment-reopened", paragraphId, commentId });
+  }
+  async function setTone(tone) {
+    await mutate((data) => {
+      data.settings = data.settings || {};
+      data.settings.tone = tone;
+    }, { type: "tone-changed", tone });
+  }
+
+  // ---------- pending helpers ----------
+  function commentIsPending(c) {
+    if (c.resolved) return false;
+    if (c.needsAgent) return true;
+    return (c.replies || []).some(commentIsPending);
+  }
+  function paragraphIsPending(p) {
+    if (p.pendingChange) return true;
+    return (p.comments || []).some(commentIsPending);
+  }
+
+  // ---------- rendering ----------
+  function isBusy() {
+    const active = document.activeElement;
+    if (active && active.classList && (active.classList.contains("block") || active.classList.contains("thread-input"))) return true;
+    return openComposers.size > 0 || openReplies.size > 0;
+  }
+
+  function renderCommentNode(paragraphId, c, isTopLevel) {
+    const wrap = document.createElement("div");
+    wrap.className = "comment";
+    const who = c.author === "claude" ? "Claude" : "You";
+    const resolveBtn = !isTopLevel ? "" : c.resolved
+      ? `<button class="thread-link reopen-btn" data-pid="${paragraphId}" data-cid="${c.id}">reopen</button>`
+      : `<button class="thread-link resolve-btn" data-pid="${paragraphId}" data-cid="${c.id}">resolve</button>`;
+    wrap.innerHTML = `
+      <div class="comment-meta"><span class="who ${c.author === "claude" ? "claude" : ""}">${who}</span><span>${fmtTime(c.createdAt)}</span></div>
+      <div class="comment-text md-content">${renderMarkdown(c.text, c.id)}</div>
+      <div class="comment-actions">
+        <button class="thread-link reply-toggle" data-cid="${c.id}">reply</button>
+        ${resolveBtn}
+      </div>
+      <div class="compose ${openReplies.has(c.id) ? "open" : ""}" data-reply-for="${c.id}">
+        <textarea class="thread-input" placeholder="Reply…"></textarea>
+        <div class="compose-actions">
+          <button class="primary reply-send" data-pid="${paragraphId}" data-cid="${c.id}">Reply</button>
+          <button class="thread-link reply-cancel" data-cid="${c.id}">cancel</button>
+        </div>
+      </div>
+      <div class="replies"></div>
+    `;
+    const repliesEl = wrap.querySelector(".replies");
+    (c.replies || []).forEach((r) => repliesEl.appendChild(renderCommentNode(paragraphId, r, false)));
+    return wrap;
+  }
+
+  function renderThreadCard(p) {
+    const card = document.createElement("div");
+    card.className = "thread-card";
+    card.dataset.for = p.id;
+
+    const all = p.comments || [];
+    const active = all.filter((c) => !c.resolved);
+    const resolved = all.filter((c) => c.resolved);
+
+    active.forEach((c) => card.appendChild(renderCommentNode(p.id, c, true)));
+
+    if (resolved.length) {
+      const det = document.createElement("details");
+      det.className = "resolved-group";
+      det.innerHTML = `<summary>${resolved.length} resolved</summary>`;
+      resolved.forEach((c) => det.appendChild(renderCommentNode(p.id, c, true)));
+      det.addEventListener("toggle", scheduleSync);
+      card.appendChild(det);
+    }
+
+    const composeWrap = document.createElement("div");
+    composeWrap.className = "compose" + (openComposers.has(p.id) ? " open" : "");
+    composeWrap.dataset.for = p.id;
+    composeWrap.innerHTML = `
+      <textarea class="thread-input" placeholder="Add a comment…"></textarea>
+      <div class="compose-actions">
+        <button class="primary send-comment" data-id="${p.id}">Comment</button>
+        <button class="thread-link cancel-comment" data-id="${p.id}">cancel</button>
+      </div>
+    `;
+    card.appendChild(composeWrap);
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button, textarea, a")) return;
+      const block = blocksEl.querySelector(`.block[data-id="${p.id}"]`);
+      if (block) {
+        block.scrollIntoView({ behavior: "smooth", block: "center" });
+        block.focus();
+      }
+    });
+    return card;
+  }
+
+  function setLinkedHighlight(paragraphId, active) {
+    const card = rightColEl.querySelector(`.thread-card[data-for="${paragraphId}"]`);
+    const row = blocksEl.querySelector(`.block-row[data-id="${paragraphId}"]`);
+    if (card) card.classList.toggle("linked-highlight", active);
+    if (row) row.classList.toggle("linked-highlight", active);
+  }
+
+  function focusAndFlashCard(paragraphId) {
+    requestAnimationFrame(() => {
+      const card = rightColEl.querySelector(`.thread-card[data-for="${paragraphId}"]`);
+      if (!card) return;
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.add("flash");
+      setTimeout(() => card.classList.remove("flash"), 900);
+      if (openComposers.has(paragraphId)) {
+        const ta = card.querySelector(`.compose[data-for="${paragraphId}"] textarea`);
+        if (ta) ta.focus();
+      }
+    });
+  }
+
+  function renderBlock(p) {
+    const wrap = document.createElement("div");
+    wrap.className = "block-wrap";
+
+    const row = document.createElement("div");
+    row.className = "block-row";
+    row.dataset.id = p.id;
+
+    const block = document.createElement("div");
+    block.className = "block md-content";
+    block.contentEditable = "false";
+    block.tabIndex = 0;
+    block.innerHTML = renderMarkdown(p.text, p.id);
+    block.dataset.id = p.id;
+
+    function enterEdit() {
+      if (block.classList.contains("editing")) return;
+      block.classList.add("editing");
+      block.contentEditable = "plaintext-only";
+      block.textContent = p.text;
+      placeCaretAtEnd(block);
+      setLinkedHighlight(p.id, true);
+      const card = rightColEl.querySelector(`.thread-card[data-for="${p.id}"]`);
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    block.addEventListener("click", enterEdit);
+    block.addEventListener("focus", enterEdit);
+
+    block.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        block.blur();
+      } else if (e.key === "Escape") {
+        block.textContent = p.text;
+        block.blur();
+      }
+    });
+    block.addEventListener("input", () => {
+      unsavedDot.classList.toggle("hidden", block.textContent === p.text);
+      scheduleSync();
+    });
+    block.addEventListener("blur", async () => {
+      setLinkedHighlight(p.id, false);
+      const newText = block.textContent;
+      if (newText.trim() && newText !== p.text) {
+        await editParagraph(p.id, newText); // triggers a full re-render on save
+      } else {
+        block.classList.remove("editing");
+        block.contentEditable = "false";
+        block.innerHTML = renderMarkdown(p.text, p.id);
+      }
+    });
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "block-meta";
+
+    const unsavedDot = document.createElement("span");
+    unsavedDot.className = "dot unsaved hidden";
+    unsavedDot.title = "unsaved changes";
+    metaEl.appendChild(unsavedDot);
+    if (p.pendingChange) {
+      const dot = document.createElement("span");
+      dot.className = "dot" + (p.pendingChange.type === "edited" ? " edit" : "");
+      dot.title = p.pendingChange.type === "edited" ? "claude is cross-checking this edit" : "waiting for claude";
+      metaEl.appendChild(dot);
+    } else if ((p.comments || []).some(commentIsPending)) {
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.title = "waiting for claude";
+      metaEl.appendChild(dot);
+    }
+
+    const timeText = document.createElement("span");
+    timeText.textContent = p.updatedAt !== p.createdAt
+      ? `edited ${fmtTime(p.updatedAt)}`
+      : fmtTime(p.createdAt);
+    metaEl.appendChild(timeText);
+
+    const count = (p.comments || []).filter((c) => !c.resolved).length;
+    const commentBtn = document.createElement("button");
+    commentBtn.className = "icon-btn comment-toggle" + (count ? " has-count" : "");
+    commentBtn.innerHTML = `💬${count ? `<span class="count">${count}</span>` : ""}`;
+    commentBtn.onclick = () => {
+      openComposers.has(p.id) ? openComposers.delete(p.id) : openComposers.add(p.id);
+      render(latestData);
+      focusAndFlashCard(p.id);
+    };
+    metaEl.appendChild(commentBtn);
+
+    row.appendChild(block);
+    wrap.appendChild(row);
+    wrap.appendChild(metaEl);
+    return wrap;
+  }
+
+  function renderInsertGap(anchorId, alwaysVisible) {
+    const gap = document.createElement("div");
+    gap.className = "insert-gap" + (alwaysVisible ? " always-visible" : "");
+
+    const btn = document.createElement("button");
+    btn.className = "insert-btn";
+    btn.title = "Insert paragraph here";
+    btn.textContent = "+";
+    gap.appendChild(btn);
+
+    btn.onclick = () => {
+      gap.classList.add("composing");
+      gap.innerHTML = "";
+      const tempBlock = document.createElement("div");
+      tempBlock.className = "block new-block";
+      tempBlock.contentEditable = "plaintext-only";
+      tempBlock.dataset.placeholder = "Write a paragraph…";
+      gap.appendChild(tempBlock);
+      scheduleSync();
+
+      let committing = false;
+      async function commit() {
+        const text = tempBlock.textContent;
+        if (!text.trim()) { render(latestData); return; }
+        committing = true;
+        await insertParagraphBefore(anchorId, text);
+      }
+      tempBlock.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); }
+        else if (e.key === "Escape") { committing = true; render(latestData); }
+      });
+      tempBlock.addEventListener("input", scheduleSync);
+      tempBlock.addEventListener("blur", () => { if (!committing) commit(); });
+      requestAnimationFrame(() => tempBlock.focus());
+    };
+
+    return gap;
+  }
+
+  function attachThreadHandlers() {
+    rightColEl.querySelectorAll(".cancel-comment").forEach((b) => {
+      b.onclick = () => { openComposers.delete(b.dataset.id); render(latestData); };
+    });
+    rightColEl.querySelectorAll(".send-comment").forEach((b) => {
+      b.onclick = async () => {
+        const box = rightColEl.querySelector(`.compose[data-for="${b.dataset.id}"] textarea`);
+        const pid = b.dataset.id;
+        openComposers.delete(pid);
+        await addComment(pid, box.value, null);
+        focusAndFlashCard(pid);
+      };
+    });
+    rightColEl.querySelectorAll(".reply-toggle").forEach((b) => {
+      b.onclick = () => {
+        openReplies.has(b.dataset.cid) ? openReplies.delete(b.dataset.cid) : openReplies.add(b.dataset.cid);
+        render(latestData);
+      };
+    });
+    rightColEl.querySelectorAll(".reply-cancel").forEach((b) => {
+      b.onclick = () => { openReplies.delete(b.dataset.cid); render(latestData); };
+    });
+    rightColEl.querySelectorAll(".reply-send").forEach((b) => {
+      b.onclick = async () => {
+        const box = rightColEl.querySelector(`.compose[data-reply-for="${b.dataset.cid}"] textarea`);
+        openReplies.delete(b.dataset.cid);
+        await addComment(b.dataset.pid, box.value, b.dataset.cid);
+      };
+    });
+    rightColEl.querySelectorAll(".resolve-btn").forEach((b) => {
+      b.onclick = () => setResolved(b.dataset.pid, b.dataset.cid, true);
+    });
+    rightColEl.querySelectorAll(".reopen-btn").forEach((b) => {
+      b.onclick = () => setResolved(b.dataset.pid, b.dataset.cid, false);
+    });
+  }
+
+  function scheduleSync() {
+    if (syncScheduled) return;
+    syncScheduled = true;
+    requestAnimationFrame(() => { syncScheduled = false; syncThreadPositions(); });
+  }
+
+  function syncThreadPositions() {
+    const leftRect = leftColEl.getBoundingClientRect();
+    const cards = Array.from(rightColEl.querySelectorAll(".thread-card"));
+    const targets = cards.map((card) => {
+      const row = blocksEl.querySelector(`.block-row[data-id="${card.dataset.for}"]`);
+      const top = row ? row.getBoundingClientRect().top - leftRect.top : 0;
+      return { card, top };
+    });
+    targets.sort((a, b) => a.top - b.top);
+    let prevBottom = 0;
+    targets.forEach(({ card, top }) => {
+      const finalTop = Math.max(top, prevBottom);
+      card.style.top = finalTop + "px";
+      prevBottom = finalTop + card.offsetHeight + 12;
+    });
+  }
+
+  function updateToneButtons(data) {
+    const tone = (data.settings && data.settings.tone) || "explanatory";
+    toneButtons.forEach((b) => b.classList.toggle("active", b.dataset.tone === tone));
+  }
+
+  function extractHeadings(data) {
+    const headings = [];
+    data.paragraphs.forEach((p) => {
+      String(p.text || "").split("\n").forEach((line) => {
+        const m = line.match(/^(#{1,6})\s+(.*)$/);
+        if (m) headings.push({ id: p.id, level: m[1].length, title: m[2].trim() });
+      });
+    });
+    return headings;
+  }
+
+  function renderToc(data) {
+    tocColEl.innerHTML = "";
+    const headings = extractHeadings(data);
+    if (headings.length === 0) {
+      const hint = document.createElement("div");
+      hint.id = "toc-empty";
+      hint.textContent = "No headings yet — start a line with # for a title.";
+      tocColEl.appendChild(hint);
+      return;
+    }
+    const list = document.createElement("nav");
+    list.className = "toc-list";
+    headings.forEach((h) => {
+      const item = document.createElement("a");
+      item.href = "#";
+      item.className = "toc-item toc-level-" + h.level;
+      item.textContent = h.title || "(untitled)";
+      item.title = h.title;
+      item.onclick = (e) => {
+        e.preventDefault();
+        const row = blocksEl.querySelector(`.block-row[data-id="${h.id}"]`);
+        if (!row) return;
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("linked-highlight");
+        setTimeout(() => row.classList.remove("linked-highlight"), 900);
+      };
+      list.appendChild(item);
+    });
+    tocColEl.appendChild(list);
+  }
+
+  function renderStatsBar(data) {
+    const paragraphs = data.paragraphs.length;
+    const words = data.paragraphs.reduce((sum, p) => sum + String(p.text || "").trim().split(/\s+/).filter(Boolean).length, 0);
+    // Count threads (top-level comments), not every node — replies never carry
+    // their own resolved state, they inherit it from the thread's top-level
+    // comment, which is also what the UI collapses/hides on.
+    let open = 0, resolved = 0;
+    data.paragraphs.flatMap((p) => p.comments || []).forEach((c) => {
+      c.resolved ? resolved++ : open++;
+    });
+    statsCountsEl.innerHTML = `
+      <span><strong>${words}</strong> words</span>
+      <span><strong>${paragraphs}</strong> paragraph${paragraphs === 1 ? "" : "s"}</span>
+      <span><strong>${open}</strong> open comment${open === 1 ? "" : "s"}</span>
+      <span><strong>${resolved}</strong> resolved</span>
+    `;
+  }
+
+  function renderTicker(data) {
+    const status = data.agentStatus || { text: "Idle — watching for changes", state: "idle", at: 0 };
+    tickerEl.classList.toggle("working", status.state === "working");
+    tickerEl.querySelector(".ticker-text").textContent = status.text;
+    lastKnownStatusAt = status.at || 0;
+  }
+
+  function render(data) {
+    latestData = data;
+    blocksEl.innerHTML = "";
+    if (data.paragraphs.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "empty-hint";
+      hint.textContent = "Nothing here yet — click + below to start writing.";
+      blocksEl.appendChild(hint);
+    }
+    data.paragraphs.forEach((p) => {
+      blocksEl.appendChild(renderInsertGap(p.id));
+      blocksEl.appendChild(renderBlock(p));
+    });
+    blocksEl.appendChild(renderInsertGap(null, true));
+
+    rightColEl.innerHTML = "";
+    const withDiscussion = data.paragraphs.filter((p) => (p.comments || []).length > 0 || openComposers.has(p.id));
+    if (withDiscussion.length === 0) {
+      const hint = document.createElement("div");
+      hint.id = "right-col-empty";
+      hint.textContent = "No discussion yet — click 💬 on a paragraph to start one.";
+      rightColEl.appendChild(hint);
+    } else {
+      withDiscussion.forEach((p) => rightColEl.appendChild(renderThreadCard(p)));
+    }
+
+    attachThreadHandlers();
+    updateToneButtons(data);
+    renderToc(data);
+    renderStatsBar(data);
+    renderTicker(data);
+    scheduleSync();
+  }
+
+  // click in the empty space below content opens the trailing "add paragraph" gap
+  leftColEl.addEventListener("click", (e) => {
+    if (e.target === leftColEl || e.target === blocksEl) {
+      const btns = blocksEl.querySelectorAll(".insert-gap .insert-btn");
+      const lastBtn = btns[btns.length - 1];
+      if (lastBtn) lastBtn.click();
+    }
+  });
+
+  toneButtons.forEach((b) => { b.onclick = () => setTone(b.dataset.tone); });
+  window.addEventListener("resize", scheduleSync);
+
+  // ---------- connection flow ----------
+  function setStatus(extra) {
+    const name = fileHandle ? fileHandle.name : "not connected";
+    statusEl.textContent = extra ? `${name} · ${extra} at ${new Date().toLocaleTimeString()}` : name;
+  }
+
+  async function connect(handle) {
+    fileHandle = handle;
+    await idbSet(HANDLE_KEY, handle);
+    gateEl.classList.add("hidden");
+    docAreaEl.classList.remove("hidden");
+    statsBarEl.classList.remove("hidden");
+    const data = await readDoc();
+    lastKnownRev = data.rev || 0;
+    render(data);
+    setStatus("connected");
+    startPolling();
+  }
+
+  async function pickAndConnect() {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+        excludeAcceptAllOption: false
+      });
+      const perm = await handle.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") { alert("Write permission is required."); return; }
+      await connect(handle);
+    } catch (e) {
+      if (e.name !== "AbortError") console.error(e);
+    }
+  }
+
+  async function createAndConnect() {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "doc.json",
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify({ rev: 0, settings: { tone: "explanatory" }, paragraphs: [] }, null, 2) + "\n");
+      await writable.close();
+      await connect(handle);
+    } catch (e) {
+      if (e.name !== "AbortError") console.error(e);
+    }
+  }
+
+  async function tryAutoReconnect() {
+    const handle = await idbGet(HANDLE_KEY);
+    if (!handle) return;
+    const perm = await handle.queryPermission({ mode: "readwrite" });
+    if (perm === "granted") {
+      await connect(handle);
+    } else {
+      statusEl.textContent = `${handle.name} · click Connect to reauthorize`;
+      document.getElementById("connect-btn").onclick = document.getElementById("connect-btn-2").onclick = async () => {
+        const p = await handle.requestPermission({ mode: "readwrite" });
+        if (p === "granted") await connect(handle);
+        else await pickAndConnect();
+      };
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      if (!fileHandle) return;
+      try {
+        const data = await readDoc();
+        // The activity ticker is safe to update even mid-edit — it never
+        // touches document content, so it's outside the isBusy() gate.
+        const statusAt = (data.agentStatus && data.agentStatus.at) || 0;
+        if (statusAt !== lastKnownStatusAt) renderTicker(data);
+        if (isBusy()) return; // don't yank the rug out from under an active edit
+        if ((data.rev || 0) !== lastKnownRev) {
+          lastKnownRev = data.rev || 0;
+          render(data);
+          setStatus("synced");
+        }
+      } catch (e) {
+        console.error("poll failed", e);
+      }
+    }, 3000);
+  }
+
+  document.getElementById("connect-btn").onclick = pickAndConnect;
+  document.getElementById("connect-btn-2").onclick = pickAndConnect;
+  document.getElementById("new-doc-btn").onclick = createAndConnect;
+  document.getElementById("new-doc-btn-2").onclick = createAndConnect;
+
+  const helpDialog = document.getElementById("help-dialog");
+  document.getElementById("help-btn").onclick = () => helpDialog.showModal();
+  document.getElementById("help-close").onclick = () => helpDialog.close();
+  helpDialog.addEventListener("click", (e) => {
+    if (e.target === helpDialog) helpDialog.close(); // click on backdrop
+  });
+
+  if (!window.showOpenFilePicker) {
+    statusEl.textContent = "This browser doesn't support the File System Access API — use Chrome or Edge.";
+  } else {
+    tryAutoReconnect();
+  }
+})();
+</script>
+</body>
+</html>

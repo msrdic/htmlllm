@@ -1,0 +1,31 @@
+/* thread-doc theme — this is a live copy of the default colors, linked as a
+   normal stylesheet after the built-in styles, so anything you change here
+   takes effect. Edit any value below; reload the page to see it. */
+
+:root {
+  --bg: #ffffff;
+  --fg: #37352f;
+  --muted: #9b9a97;
+  --border: #ececea;
+  --accent: #2f6fed;
+  --hover-bg: rgba(55, 53, 47, 0.04);
+  --hover-bg-strong: rgba(55, 53, 47, 0.09);
+  --pending: #dfab01;
+  --pending-edit: #e0703a;
+  --resolved: #2f9e5f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191919;
+    --fg: #e9e9e7;
+    --muted: #808080;
+    --border: #2c2c2c;
+    --accent: #6ea8fe;
+    --hover-bg: rgba(255, 255, 255, 0.055);
+    --hover-bg-strong: rgba(255, 255, 255, 0.09);
+    --pending: #e6c34d;
+    --pending-edit: #ef8b5f;
+    --resolved: #4cc383;
+  }
+}
