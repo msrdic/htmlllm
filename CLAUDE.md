@@ -1,4 +1,4 @@
-# thread-doc — agent instructions
+# htmlllm — agent instructions
 
 This is a collaborative doc: the user writes paragraphs and comments in an
 HTML file (opened directly via `file://` in Chrome/Edge — no server), and an

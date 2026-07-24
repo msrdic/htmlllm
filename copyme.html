@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>thread-doc</title>
+<title>htmlllm</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -413,7 +413,7 @@
 <body>
 
 <header>
-  <h1>thread-doc</h1>
+  <h1>htmlllm</h1>
   <span id="status">not connected</span>
   <div class="tone-toggle">
     <button class="tone-btn" data-tone="brief">Brief</button>
@@ -539,7 +539,7 @@
   // ---------- IndexedDB handle persistence ----------
   function idbGet(key) {
     return new Promise((resolve) => {
-      const req = indexedDB.open("thread-doc", 1);
+      const req = indexedDB.open("htmlllm", 1);
       req.onupgradeneeded = () => req.result.createObjectStore("handles");
       req.onsuccess = () => {
         const tx = req.result.transaction("handles", "readonly");
@@ -552,7 +552,7 @@
   }
   function idbSet(key, value) {
     return new Promise((resolve) => {
-      const req = indexedDB.open("thread-doc", 1);
+      const req = indexedDB.open("htmlllm", 1);
       req.onupgradeneeded = () => req.result.createObjectStore("handles");
       req.onsuccess = () => {
         const tx = req.result.transaction("handles", "readwrite");
