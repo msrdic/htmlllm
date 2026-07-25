@@ -24,7 +24,7 @@ If you're tired of reviewing what agents write, flip the tables: let agents revi
 
 **html file is the shell, json file is the yolk**.
 
-<img width="300" height="100" alt="mechanistic-view" src="https://github.com/user-attachments/assets/a9b6b487-1405-48fc-a8c0-aa64c2faee5d" />
+<img width="800" height="200" alt="mechanistic-view" src="https://github.com/user-attachments/assets/a9b6b487-1405-48fc-a8c0-aa64c2faee5d" />
 
 When you perform an action (add a paragraph, edit paragraph, create a comment, reply to a comment, resolve a comment), it is written to the json file. Agent has a monitor on that file and watches for changes. Once it detects the change, it parses the change and decides what to post as a comment (or not to post a thing).
 
