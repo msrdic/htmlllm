@@ -87,6 +87,16 @@
     padding: 5px 10px;
   }
   #new-doc-btn:hover { background: var(--hover-bg); }
+  #export-btn {
+    flex-shrink: 0;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--fg);
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+  #export-btn:hover { background: var(--hover-bg); }
   #help-btn {
     flex-shrink: 0;
     width: 26px;
@@ -102,7 +112,7 @@
   }
   #help-btn:hover { background: var(--hover-bg); color: var(--fg); border-color: var(--accent); }
 
-  #help-dialog {
+  .app-dialog {
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0;
@@ -112,8 +122,8 @@
     color: var(--fg);
     background: var(--bg);
   }
-  #help-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
-  #help-dialog .help-header {
+  .app-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+  .app-dialog .dialog-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -123,8 +133,8 @@
     top: 0;
     background: var(--bg);
   }
-  #help-dialog h2 { font-size: 15px; margin: 0; }
-  #help-close {
+  .app-dialog h2 { font-size: 15px; margin: 0; }
+  .dialog-close {
     border: none;
     background: none;
     color: var(--muted);
@@ -133,7 +143,7 @@
     padding: 2px 6px;
     border-radius: 4px;
   }
-  #help-close:hover { background: var(--hover-bg); color: var(--fg); }
+  .dialog-close:hover { background: var(--hover-bg); color: var(--fg); }
   #help-dialog section { padding: 14px 20px; border-bottom: 1px solid var(--border); }
   #help-dialog section:last-child { border-bottom: none; }
   #help-dialog h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
@@ -143,6 +153,23 @@
   .help-table td:last-child { color: var(--muted); white-space: normal; }
   .help-table code { background: var(--hover-bg-strong); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; white-space: nowrap; }
   .help-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .export-body { padding: 14px 20px 18px; }
+  .export-body .help-note { margin: 0 0 10px; }
+  #export-text {
+    width: 100%;
+    height: 320px;
+    resize: vertical;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--hover-bg);
+    color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 10px 12px;
+  }
+  .export-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #export-copied { font-size: 12px; color: var(--resolved); }
   button.primary {
     background: var(--accent);
     color: white;
@@ -421,13 +448,14 @@
   </div>
   <button id="connect-btn">Connect doc.json</button>
   <button id="new-doc-btn" title="Create a new, empty JSON data file and connect it">New doc…</button>
+  <button id="export-btn" title="Export the document as plain Markdown">Export…</button>
   <button id="help-btn" title="Help">?</button>
 </header>
 
-<dialog id="help-dialog">
-  <div class="help-header">
+<dialog id="help-dialog" class="app-dialog">
+  <div class="dialog-header">
     <h2>Formatting &amp; shortcuts</h2>
-    <button id="help-close" title="Close">×</button>
+    <button id="help-close" class="dialog-close" title="Close">×</button>
   </div>
 
   <section>
@@ -482,6 +510,21 @@
     <h3>Theming</h3>
     <p class="help-note">Edit <code>theme.css</code> in this folder directly — it's linked as a normal stylesheet and starts out as a live copy of the default colors (<code>--bg</code>, <code>--fg</code>, <code>--muted</code>, <code>--border</code>, <code>--accent</code>, <code>--hover-bg</code>, <code>--hover-bg-strong</code>, <code>--pending</code>, <code>--pending-edit</code>, <code>--resolved</code>, plus a dark-mode block). Change any value and reload the page to see it. Shared across every doc you make from <code>copyme.html</code>, since they all link the same relative <code>theme.css</code>.</p>
   </section>
+</dialog>
+
+<dialog id="export-dialog" class="app-dialog">
+  <div class="dialog-header">
+    <h2>Export as Markdown</h2>
+    <button id="export-close" class="dialog-close" title="Close">×</button>
+  </div>
+  <div class="export-body">
+    <p class="help-note">Paragraph content only, in document order — comments and discussion aren't included.</p>
+    <textarea id="export-text" readonly></textarea>
+    <div class="export-actions">
+      <button class="primary" id="export-copy">Copy to clipboard</button>
+      <span id="export-copied" class="hidden">Copied!</span>
+    </div>
+  </div>
 </dialog>
 
 <div id="page">
@@ -1350,6 +1393,30 @@
   helpDialog.addEventListener("click", (e) => {
     if (e.target === helpDialog) helpDialog.close(); // click on backdrop
   });
+
+  const exportDialog = document.getElementById("export-dialog");
+  const exportTextEl = document.getElementById("export-text");
+  const exportCopiedEl = document.getElementById("export-copied");
+  document.getElementById("export-btn").onclick = () => {
+    exportTextEl.value = latestData.paragraphs.map((p) => p.text).join("\n\n");
+    exportCopiedEl.classList.add("hidden");
+    exportDialog.showModal();
+    exportTextEl.focus();
+    exportTextEl.select();
+  };
+  document.getElementById("export-close").onclick = () => exportDialog.close();
+  exportDialog.addEventListener("click", (e) => {
+    if (e.target === exportDialog) exportDialog.close(); // click on backdrop
+  });
+  document.getElementById("export-copy").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(exportTextEl.value);
+    } catch (e) {
+      exportTextEl.select();
+      document.execCommand("copy");
+    }
+    exportCopiedEl.classList.remove("hidden");
+  };
 
   if (!window.showOpenFilePicker) {
     statusEl.textContent = "This browser doesn't support the File System Access API — use Chrome or Edge.";
