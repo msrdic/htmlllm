@@ -17,6 +17,7 @@
     --pending: #dfab01;
     --pending-edit: #e0703a;
     --resolved: #2f9e5f;
+    --danger: #d1453b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -30,6 +31,7 @@
       --pending: #e6c34d;
       --pending-edit: #ef8b5f;
       --resolved: #4cc383;
+      --danger: #ec5f56;
     }
   }
   * { box-sizing: border-box; }
@@ -337,6 +339,7 @@
     line-height: 1;
   }
   .icon-btn:hover { background: var(--hover-bg-strong); color: var(--fg); }
+  .delete-btn:hover { background: var(--hover-bg-strong); color: var(--danger); }
   .count { font-size: 10px; background: var(--accent); color: white; border-radius: 8px; padding: 0 5px; line-height: 14px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pending); flex-shrink: 0; animation: pulse 1.4s infinite ease-in-out; }
   .dot.edit { background: var(--pending-edit); }
@@ -486,6 +489,7 @@
       <tr><td><code>Escape</code></td><td>Discard changes and exit edit mode</td></tr>
       <tr><td>Hover between paragraphs</td><td>A <code>+</code> appears to insert a new paragraph there</td></tr>
       <tr><td>Click empty space below the doc</td><td>Opens the "add paragraph at the end" spot</td></tr>
+      <tr><td>🗑 in a paragraph's metadata line</td><td>Delete that paragraph (and its comments) after a confirmation — there's no undo</td></tr>
     </table>
   </section>
 
@@ -510,7 +514,7 @@
 
   <section>
     <h3>Theming</h3>
-    <p class="help-note">Edit <code>theme.css</code> in this folder directly — it's linked as a normal stylesheet and starts out as a live copy of the default colors (<code>--bg</code>, <code>--fg</code>, <code>--muted</code>, <code>--border</code>, <code>--accent</code>, <code>--hover-bg</code>, <code>--hover-bg-strong</code>, <code>--pending</code>, <code>--pending-edit</code>, <code>--resolved</code>, plus a dark-mode block). Change any value and reload the page to see it. Shared across every doc you make from <code>copyme.html</code>, since they all link the same relative <code>theme.css</code>.</p>
+    <p class="help-note">Edit <code>theme.css</code> in this folder directly — it's linked as a normal stylesheet and starts out as a live copy of the default colors (<code>--bg</code>, <code>--fg</code>, <code>--muted</code>, <code>--border</code>, <code>--accent</code>, <code>--hover-bg</code>, <code>--hover-bg-strong</code>, <code>--pending</code>, <code>--pending-edit</code>, <code>--resolved</code>, <code>--danger</code>, plus a dark-mode block). Change any value and reload the page to see it. Shared across every doc you make from <code>copyme.html</code>, since they all link the same relative <code>theme.css</code>.</p>
   </section>
 </dialog>
 
@@ -878,6 +882,12 @@
       }
     }, { type: resolved ? "comment-resolved" : "comment-reopened", paragraphId, commentId });
   }
+  async function deleteParagraph(id) {
+    await mutate((data) => {
+      const idx = data.paragraphs.findIndex((p) => p.id === id);
+      if (idx !== -1) data.paragraphs.splice(idx, 1);
+    }, { type: "paragraph-deleted", paragraphId: id });
+  }
   async function setTone(tone) {
     await mutate((data) => {
       data.settings = data.settings || {};
@@ -1082,6 +1092,21 @@
       focusAndFlashCard(p.id);
     };
     metaEl.appendChild(commentBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn delete-btn";
+    deleteBtn.title = "Delete this paragraph";
+    deleteBtn.innerHTML = "🗑";
+    deleteBtn.onclick = () => {
+      const totalComments = (function count(comments) {
+        return (comments || []).reduce((sum, c) => sum + 1 + count(c.replies), 0);
+      })(p.comments);
+      const msg = totalComments
+        ? `Delete this paragraph and its ${totalComments} comment${totalComments === 1 ? "" : "s"}? This can't be undone.`
+        : "Delete this paragraph? This can't be undone.";
+      if (confirm(msg)) deleteParagraph(p.id);
+    };
+    metaEl.appendChild(deleteBtn);
 
     row.appendChild(block);
     wrap.appendChild(row);

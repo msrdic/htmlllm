@@ -13,6 +13,7 @@
   --pending: #dfab01;
   --pending-edit: #e0703a;
   --resolved: #2f9e5f;
+  --danger: #d1453b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,5 +28,6 @@
     --pending: #e6c34d;
     --pending-edit: #ef8b5f;
     --resolved: #4cc383;
+    --danger: #ec5f56;
   }
 }
