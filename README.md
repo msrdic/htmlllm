@@ -3,7 +3,7 @@
 **htmlllm** is a **human-first** kind-of single-file kind-of writing-harness.
 
 ## Why
-If you're tired of reviewing what agents write, flip the tables: let agents review what you write.
+If you're tired of reviewing what agents write, turn the tables: let agents review what you write.
 
 Writing clearly, and most importantly, understanding, takes time and no amount of innovation in LLMs will change that.
 
@@ -36,3 +36,5 @@ As you can assume from the mechanistic view above, this kind of work is slow, or
 It only works in Chrome (or Chromium-based browsers) and Edge since it uses the File System Access API.
 
 Can it use an API instead of local session? Yes, probably, but my focus was on almost zero-setup.
+
+This was tested mainly with Claude and Codex, but Codex lacks a monitor-like tool, so the experience is not ideal.
