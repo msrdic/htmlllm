@@ -2,6 +2,8 @@
 
 **htmlllm** is a **human-first** kind-of single-file kind-of writing-harness.
 
+<img width="781" height="545" alt="Screenshot 2026-07-25 at 1 24 04 AM" src="https://github.com/user-attachments/assets/2ffa2a3b-f02e-458b-aedf-09452b387716" />
+
 ## Why
 If you're tired of reviewing what agents write, flip the tables: let agents review what you write.
 
@@ -15,11 +17,10 @@ If you're tired of reviewing what agents write, flip the tables: let agents revi
 - start what you do best
 
 ## Features
-- **simple**: no server, database or API, just a simple markdown-based block editor
+- **simple**: no server, database or API, just a simple markdown-based block editor communicating with a session on your machine
 - **agent is a reviewer**: posts comments on paragraphs, replies to your comments
 - **brief** vs. **explanatory** mode: the style of agent's comments
-
-<img width="781" height="545" alt="Screenshot 2026-07-25 at 1 24 04 AM" src="https://github.com/user-attachments/assets/2ffa2a3b-f02e-458b-aedf-09452b387716" />
+- **basic export**: click Export, it opens a panel with complete markdown (content only, not revision comments); copy it and paste it where you need it
 
 ## Mechanistic view
 
@@ -28,8 +29,14 @@ If you're tired of reviewing what agents write, flip the tables: let agents revi
 When you perform an action (add a paragraph, edit paragraph, create a comment, reply to a comment, resolve a comment), it is written to the json file. Agent has a monitor on that file and watches for changes. Once it detects the change, it parses the change and decides what to post as a comment (or not to post a thing).
 
 ## Caveats
-As you can assume from the mechanistic view above, this kind of work is slow, or at least slower than you regular agentic sessions.
+As you can assume from the mechanistic view above, this kind of work is slow, or at least slower than you regular agentic sessions. A json file is a level of indirection.
 
-It is opinionated. Writing clearly, and most importantly, understanding, takes time and no amount of innovation in LLMs will change that. To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the agent wrote it".
+It is opinionated. Writing clearly, and most importantly, understanding, takes time and no amount of innovation in LLMs will change that.
 
-It also only works in Chrome (or Chromium-based browsers) and Edge since it uses the File System Access API.
+To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the agent wrote it". Write what you know, ask questions and let agents help with a more thorough understanding. Repeat.
+
+It only works in Chrome (or Chromium-based browsers) and Edge since it uses the File System Access API.
+
+## Future work
+- deleting paragraphs: currently not possible
+- images support: ask an agent to generate an image and show it in a separate paragraph
