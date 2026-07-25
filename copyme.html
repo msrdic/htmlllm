@@ -310,6 +310,7 @@
   .md-content code { background: var(--hover-bg-strong); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
   .md-content ul, .md-content ol { margin: .2em 0; padding-left: 1.4em; }
   .md-content a { color: var(--accent); }
+  .md-content img { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: .4em 0; }
   .md-content a.md-ref-link { text-decoration: none; }
   .md-content a.md-ref-link sup { color: var(--accent); font-weight: 600; }
   .md-content a.md-ref-link sup::before { content: "["; }
@@ -470,6 +471,7 @@
       <tr><td><code>- item</code> / <code>1. item</code></td><td>Bulleted / numbered list</td></tr>
       <tr><td><code>&gt; text</code></td><td>Blockquote</td></tr>
       <tr><td><code>[text](url)</code></td><td>Link</td></tr>
+      <tr><td><code>![alt](path)</code></td><td>Image — path is relative to the doc's folder, e.g. an <code>images/</code> subfolder you create yourself</td></tr>
       <tr><td><code>[text][1]</code> or <code>[1]</code><br><code>[1]: url</code></td><td>Reference-style link — cite as <code>[1]</code> anywhere in the paragraph, define <code>[1]: url</code> on its own line; renders as a small numbered reference list at the bottom of that paragraph</td></tr>
     </table>
     <p class="help-note">Markdown works the same way in comments as in paragraphs.</p>
@@ -651,6 +653,14 @@
     // classic snake_case footgun; dropping it avoids that ambiguity entirely.
     t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    // image: ![alt](url) — checked before the link syntax below so the `!`
+    // is consumed and the pair doesn't also get matched as a plain link.
+    // Unlike link hrefs (restricted to http/https), local relative paths
+    // are the whole point here, so only javascript: is explicitly blocked.
+    t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, url) => {
+      if (/^javascript:/i.test(url)) return "";
+      return `<img src="${url}" alt="${alt}" loading="lazy">`;
+    });
     // inline link: [text](url)
     t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, label, url) => {
       const safeUrl = /^https?:\/\//i.test(url) ? url : "#";
