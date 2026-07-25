@@ -19,7 +19,7 @@ If you're tired of reviewing what agents write, flip the tables: let agents revi
 - **agent is a reviewer**: posts comments on paragraphs, replies to your comments
 - **brief** vs. **explanatory** mode: the style of agent's comments
 
-<img width="1561" height="1089" alt="Screenshot 2026-07-25 at 1 24 04 AM" src="https://github.com/user-attachments/assets/8314855d-c133-49b3-ac15-3ee821bd1f0b" />
+<img width="1561" height="1089" alt="Screenshot 2026-07-25 at 1 24 04 AM" src="https://github.com/user-attachments/assets/0a455560-d302-4c93-9df0-e4291691601a" />
 
 ## Mechanistic view
 
