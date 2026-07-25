@@ -2,8 +2,6 @@
 
 **htmlllm** is a **human-first** kind-of single-file kind-of writing-harness.
 
-<img width="781" height="545" alt="Screenshot 2026-07-25 at 1 24 04 AM" src="https://github.com/user-attachments/assets/2ffa2a3b-f02e-458b-aedf-09452b387716" />
-
 ## Why
 If you're tired of reviewing what agents write, flip the tables: let agents review what you write.
 
@@ -26,6 +24,8 @@ If you're tired of reviewing what agents write, flip the tables: let agents revi
 
 **html file is the shell, json file is the yolk**.
 
+<img width="300" height="100" alt="mechanistic-view" src="https://github.com/user-attachments/assets/a9b6b487-1405-48fc-a8c0-aa64c2faee5d" />
+
 When you perform an action (add a paragraph, edit paragraph, create a comment, reply to a comment, resolve a comment), it is written to the json file. Agent has a monitor on that file and watches for changes. Once it detects the change, it parses the change and decides what to post as a comment (or not to post a thing).
 
 ## Caveats
@@ -36,7 +36,3 @@ It is opinionated. Writing clearly, and most importantly, understanding, takes t
 To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the agent wrote it". Write what you know, ask questions and let agents help with a more thorough understanding. Repeat.
 
 It only works in Chrome (or Chromium-based browsers) and Edge since it uses the File System Access API.
-
-## Future work
-- deleting paragraphs: currently not possible
-- images support: ask an agent to generate an image and show it in a separate paragraph
