@@ -9,20 +9,15 @@ Writing clearly, and most importantly, understanding, takes time and no amount o
 
 To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the agent wrote it". Write what you know, ask questions and let agents help with a more thorough understanding. Repeat.
 
-## How it works
-- clone this repository; navigate to the directory
-- make a copy of `copyme.html`, give it a descriptive name
-- open a file in **Chrome/Edge**
-- click on **Start a new doc** and create an associated json file; give it a descriptive name
-- start a new interactive agent session in the directory where `CLAUDE.md` is (current directory if you didn't change it)
-- send it a message ("read CLAUDE.md") and agent will ask you which files to watch; choose the newly created pair
-- start what you do best
-
 ## Features
 - **simple**: no server, database, API or setup, just a simple markdown-based block editor communicating with a session on your machine
 - **agent is a reviewer**: posts comments on paragraphs, replies to your comments
 - **brief** vs. **explanatory** mode: the style of agent's comments
 - **basic export**: click Export, it opens a panel with complete markdown (content only, not revision comments); copy it and paste it where you need it
+
+## Requirements
+- chromium-based browser (Chrome, Brave) or Edge with File System Access API enabled
+- Claude with Monitor tool
 
 ## Mechanistic view
 
@@ -30,11 +25,18 @@ To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the ag
 
 When you perform an action (add a paragraph, edit paragraph, create a comment, reply to a comment, resolve a comment), it is written to the json file. Agent has a monitor on that file and watches for changes. Once it detects the change, it parses the change and decides what to post as a comment (or not to post a thing).
 
+## Starting out
+- clone this repository; navigate to the directory
+- make a copy of `copyme.html`, give it a descriptive name
+- open a file in **Chrome/Edge**
+- click on **Start a new doc** and create an associated json file; give it a descriptive name
+- start a new interactive agent session in the directory where `AGENTS.md` is (current directory if you didn't change it)
+- send it a message ("read AGENTS.md") and agent will ask you which files to watch; choose the newly created pair
+- start what you do best
+
 ## Caveats
 As you can assume from the mechanistic view above, this kind of work is slow, or at least slower than you regular agentic sessions. A json file is a level of indirection.
 
-It only works in Chrome (or Chromium-based browsers) and Edge since it uses the File System Access API.
-
 Can it use an API instead of local session? Yes, probably, but my focus was on almost zero-setup.
 
-This was tested mainly with Claude and Codex, but Codex lacks a monitor-like tool, so the experience is not ideal.
+This was tested mainly with **Claude**. With an agent that lacks a monitor-like tool you may as well switch between a browser and agent session or use something else entirely.
