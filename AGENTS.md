@@ -58,13 +58,15 @@ changes" below once you know the specific path.
 }
 ```
 
-`commentNode`: `{ id, author: "user" | "claude", text (markdown), createdAt, needsAgent: bool, resolved: bool (meaningful on top-level comments only), replies: [commentNode, ...] }`
+`commentNode`: `{ id, author: "user" | <your agent name>, text (markdown), createdAt, needsAgent: bool, resolved: bool (meaningful on top-level comments only), replies: [commentNode, ...] }`
 
-Note: `author` and `lastEvent.by` use the literal string `"claude"` today
-since that's who built this. If you're a different agent, still write
-`"claude"` into these fields rather than inventing a new value — the app's
-UI and rendering logic key off exactly that string, and there's no other
-agent-author styling defined.
+Identify yourself honestly: `"user"` is the one special-cased value (rendered
+as "You"); anything else in `author` or `lastEvent.by` is treated as an
+agent and displayed under its own name, capitalized — so write your actual
+name (`"codex"`, `"claude"`, `"gemini"`, whatever you are), not a
+hardcoded/copied value from an earlier session. If a doc's history already
+has comments from a different agent, that's fine — each comment keeps
+whichever name authored it.
 
 ## Watching for changes
 
