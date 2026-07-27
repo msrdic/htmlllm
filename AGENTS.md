@@ -54,7 +54,8 @@ changes" below once you know the specific path.
   ],
   settings: { tone: "brief" | "explanatory" },
   lastEvent: { type, paragraphId, ..., by: "browser" | "claude", at },  // last real content mutation
-  agentStatus: { text, state: "idle" | "working", at }                  // optional live status ticker
+  agentStatus: { text, state: "idle" | "working", at },                 // optional live status ticker
+  workItems: [ { id, text, state: "working" | "done", startedAt, doneAt } ]  // optional step-by-step trail
 }
 ```
 
@@ -145,12 +146,24 @@ Then, against that doc's `<name>.json`:
   paragraphs/comments that currently need attention (`pendingChange !=
   null`, `needsAgent: true`), instead of reading the whole file to find them.
 - `HTML="$HTML" node -e "$CORE" -- status "$JSON" working "short message"` —
-  sets the `agentStatus` heartbeat (step 1 below; no rev bump). The browser
-  polls for this every 3s, even mid-edit — for anything that's more than a
-  single quick reply (a multi-step implementation, a longer investigation),
-  call this again at each real step, not just once at the start. One static
-  message for a five-minute task reads as "stuck," not "working."
+  sets the `agentStatus` heartbeat (step 1 below; no rev bump): a single
+  headline for "what's happening right now."
 - `HTML="$HTML" node -e "$CORE" -- status "$JSON" idle` — clears it back.
+- `HTML="$HTML" node -e "$CORE" -- work-start "$JSON" "step description"` —
+  pushes a step onto the `workItems` stack (also no rev bump), rendered in
+  the browser as a small floating panel with a pulsing dot. Prints
+  `{"workItemId"}`.
+- `HTML="$HTML" node -e "$CORE" -- work-done "$JSON" <workItemId>` — marks
+  that step done; it stays visible (dimmed, dot stops pulsing) for ~10s in
+  the browser, then auto-archives client-side. Done items past that window
+  are also pruned from the file on the next `work-start`/`work-done` call,
+  so the array doesn't grow unbounded over a long session.
+
+For anything that's more than a single quick reply — a multi-step
+implementation, a longer investigation — use `work-start`/`work-done` per
+real step instead of relying on one `status` call at the start. A single
+static heartbeat for a five-minute task reads as "stuck," not "working";
+the work-item stack gives a live, itemized trail instead.
 - `HTML="$HTML" node -e "$CORE" -- comment "$JSON" <paragraphId> <your-agent-name> "reply text" [--reply-to <commentId>] [--clear-pending]` —
   appends a top-level comment, or with `--reply-to` a reply; if `author` is
   anything other than `"user"`, the parent comment's `needsAgent` is cleared
