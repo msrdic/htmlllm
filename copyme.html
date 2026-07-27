@@ -297,6 +297,39 @@
   }
   #stats-counts { display: flex; gap: 16px; }
   #stats-counts strong { color: var(--fg); font-weight: 600; }
+  #work-stack {
+    position: fixed;
+    left: 24px;
+    bottom: 40px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    z-index: 19;
+  }
+  .work-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    color: var(--fg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+    max-width: 320px;
+  }
+  .work-item .work-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pending-edit);
+    flex-shrink: 0;
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+  .work-item.done { color: var(--muted); }
+  .work-item.done .work-dot { background: var(--resolved); animation: none; }
+  .work-item .work-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #agent-ticker { display: flex; align-items: center; gap: 7px; transition: color .15s; }
   #agent-ticker .ticker-dot {
     width: 6px;
@@ -425,6 +458,7 @@
     border-bottom: 1px solid var(--border);
     background: transparent;
     resize: none;
+    overflow-y: hidden;
     font: inherit;
     font-size: 13px;
     color: var(--fg);
@@ -579,6 +613,8 @@
   <button id="resolved-toggle" class="hidden"></button>
 </div>
 
+<div id="work-stack" class="hidden"></div>
+
 <div id="stats-bar" class="hidden">
   <div id="agent-ticker"><span class="ticker-dot"></span><span class="ticker-text">Idle — watching for changes</span></div>
   <div id="stats-counts"></div>
@@ -711,9 +747,34 @@ const HtmlllmCore = (function () {
     };
   }
 
+  // ---------- work-item stack ----------
+  // A visible step-by-step trail for longer work, distinct from agentStatus
+  // (a single headline). Done items are pruned well past the UI's own
+  // display window so the array can't grow unbounded over a long session.
+  const WORK_ITEM_PRUNE_MS = 60000;
+  function pruneWorkItems(data) {
+    const cutoff = Date.now() - WORK_ITEM_PRUNE_MS;
+    data.workItems = (data.workItems || []).filter((w) => w.state !== "done" || w.doneAt > cutoff);
+  }
+  function pushWorkItem(data, text) {
+    data.workItems = data.workItems || [];
+    pruneWorkItems(data);
+    const item = { id: makeId("w"), text, state: "working", startedAt: Date.now(), doneAt: null };
+    data.workItems.push(item);
+    return item.id;
+  }
+  function completeWorkItem(data, id) {
+    data.workItems = data.workItems || [];
+    const item = data.workItems.find((w) => w.id === id);
+    if (item) { item.state = "done"; item.doneAt = Date.now(); }
+    pruneWorkItems(data);
+    return item || null;
+  }
+
   return {
     makeId, findParagraph, findCommentDeep, commentIsPending, paragraphIsPending,
-    pendingItems, bumpRev, addCommentNode, setResolvedNode, clearParagraphPending, setAgentStatus
+    pendingItems, bumpRev, addCommentNode, setResolvedNode, clearParagraphPending, setAgentStatus,
+    pushWorkItem, completeWorkItem, pruneWorkItems
   };
 })();
 
@@ -761,7 +822,25 @@ if (typeof window === "undefined") {
       return;
     }
 
-    console.error("usage: pending <file> | status <file> <working|idle> [text] | comment <file> <paragraphId> <author> <text> [--reply-to <commentId>] [--clear-pending]");
+    if (cmd === "work-start") {
+      const text = rest.join(" ");
+      const data = readJson();
+      const workItemId = HtmlllmCore.pushWorkItem(data, text);
+      writeJson(data);
+      console.log(JSON.stringify({ workItemId }));
+      return;
+    }
+
+    if (cmd === "work-done") {
+      const [workItemId] = rest;
+      const data = readJson();
+      HtmlllmCore.completeWorkItem(data, workItemId);
+      writeJson(data);
+      console.log(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    console.error("usage: pending <file> | status <file> <working|idle> [text] | comment <file> <paragraphId> <author> <text> [--reply-to <commentId>] [--clear-pending] | work-start <file> <text> | work-done <file> <workItemId>");
     process.exitCode = 1;
   })();
 }
@@ -795,8 +874,10 @@ if (typeof window === "undefined") {
   const connectBtnEl = document.getElementById("connect-btn");
   const newDocBtnEl = document.getElementById("new-doc-btn");
   const resolvedToggleEl = document.getElementById("resolved-toggle");
+  const workStackEl = document.getElementById("work-stack");
   const toneButtons = Array.from(document.querySelectorAll(".tone-btn"));
   let lastKnownStatusAt = 0;
+  const WORK_ITEM_DISPLAY_MS = 10000; // how long a "done" item stays visible before archiving
 
   // ---------- IndexedDB handle persistence ----------
   function idbGet(key) {
@@ -1369,6 +1450,9 @@ if (typeof window === "undefined") {
           if (btn) btn.click();
         }
       };
+      const autoGrow = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+      ta.oninput = autoGrow;
+      autoGrow();
     });
   }
 
@@ -1444,6 +1528,24 @@ if (typeof window === "undefined") {
     lastKnownStatusAt = status.at || 0;
   }
 
+  // Re-filters from in-memory data against the clock — no file I/O, so this
+  // can tick independently of the 3s doc poll for a responsive auto-archive.
+  function renderWorkStack(data) {
+    const now = Date.now();
+    const items = (data.workItems || []).filter((w) =>
+      w.state === "working" || (w.doneAt && now - w.doneAt < WORK_ITEM_DISPLAY_MS)
+    );
+    workStackEl.classList.toggle("hidden", items.length === 0);
+    workStackEl.innerHTML = "";
+    items.forEach((w) => {
+      const row = document.createElement("div");
+      row.className = "work-item" + (w.state === "done" ? " done" : "");
+      row.innerHTML = `<span class="work-dot"></span><span class="work-text"></span>`;
+      row.querySelector(".work-text").textContent = w.text;
+      workStackEl.appendChild(row);
+    });
+  }
+
   // A paragraph's discussion stays inline (hacker-news style, right under
   // the paragraph) while it has anything unresolved or an open composer;
   // once every comment is resolved, it moves to the sidebar.
@@ -1484,6 +1586,7 @@ if (typeof window === "undefined") {
     renderToc(data);
     renderStatsBar(data);
     renderTicker(data);
+    renderWorkStack(data);
   }
 
   // click in the empty space below content opens the trailing "add paragraph" gap
@@ -1506,6 +1609,10 @@ if (typeof window === "undefined") {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && rightColEl.classList.contains("open")) rightColEl.classList.remove("open");
   });
+
+  // Re-filters already-fetched data against the clock so "done" items
+  // disappear close to the 10s mark, independent of the 3s doc poll.
+  setInterval(() => renderWorkStack(latestData), 1000);
 
   // ---------- connection flow ----------
   function setStatus(extra) {
@@ -1585,10 +1692,14 @@ if (typeof window === "undefined") {
       if (!fileHandle) return;
       try {
         const data = await readDoc();
-        // The activity ticker is safe to update even mid-edit — it never
-        // touches document content, so it's outside the isBusy() gate.
+        // The activity ticker and work-stack are safe to update even mid-edit
+        // — neither touches document content, so both stay outside the
+        // isBusy() gate. latestData is kept fresh here too, independent of
+        // rev, so the 1s auto-archive tick below always has current data.
+        latestData = data;
         const statusAt = (data.agentStatus && data.agentStatus.at) || 0;
         if (statusAt !== lastKnownStatusAt) renderTicker(data);
+        renderWorkStack(data);
         if (isBusy()) return; // don't yank the rug out from under an active edit
         if ((data.rev || 0) !== lastKnownRev) {
           lastKnownRev = data.rev || 0;
