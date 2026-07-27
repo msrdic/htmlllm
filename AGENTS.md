@@ -127,9 +127,52 @@ Read the file. React to:
 
 ## How to react
 
-Always read-modify-write against the **freshest** copy of the file — re-read
-right before writing, don't rely on a stale in-memory copy — to avoid
-clobbering a concurrent edit from the browser. Typical reaction:
+### Fast path (use this if you have Bash + Node)
+
+Each doc's `<name>.html` embeds its own mutation logic in a `<script
+id="core">` block, near the top of its `<script>` section. That block is
+also a standalone CLI: extract it and run it under Node instead of reading
+and rewriting the whole `.json` by hand. Build the command once per session:
+
+```bash
+HTML=/path/to/<name>.html   # the doc's HTML file, not the .json
+CORE='eval(require("fs").readFileSync(process.env.HTML,"utf8").match(/<script id="core">([\s\S]*?)<\/script>/)[1])'
+```
+
+Then, against that doc's `<name>.json`:
+
+- `HTML="$HTML" node -e "$CORE" -- pending "$JSON"` — prints just the
+  paragraphs/comments that currently need attention (`pendingChange !=
+  null`, `needsAgent: true`), instead of reading the whole file to find them.
+- `HTML="$HTML" node -e "$CORE" -- status "$JSON" working "short message"` —
+  sets the `agentStatus` heartbeat (step 1 below; no rev bump). The browser
+  polls for this every 3s, even mid-edit — for anything that's more than a
+  single quick reply (a multi-step implementation, a longer investigation),
+  call this again at each real step, not just once at the start. One static
+  message for a five-minute task reads as "stuck," not "working."
+- `HTML="$HTML" node -e "$CORE" -- status "$JSON" idle` — clears it back.
+- `HTML="$HTML" node -e "$CORE" -- comment "$JSON" <paragraphId> <your-agent-name> "reply text" [--reply-to <commentId>] [--clear-pending]` —
+  appends a top-level comment, or with `--reply-to` a reply; if `author` is
+  anything other than `"user"`, the parent comment's `needsAgent` is cleared
+  automatically (that's step 4 — answering it). `--clear-pending` also
+  clears the paragraph's `pendingChange`. Bumps `rev`, sets `lastEvent`, and
+  resets `agentStatus` to idle (steps 5–6). Prints `{"commentId", "rev"}`.
+
+This runs the whole read-modify-write as one ~50ms subprocess call instead
+of an LLM Read + regenerate-the-entire-file Write. For a doc with any real
+history, a single reaction is a few hundred bytes of actual change inside a
+file that only grows — rewriting the whole thing as generated output tokens
+every time is the slow part, not the polling. `pending`/`comment`/`status`
+call the exact same functions (`addCommentNode`, `bumpRev`, ...) the browser
+itself calls, so a CLI-authored comment and a browser-typed one are produced
+by identical code, not two parallel implementations of the schema.
+
+### Fallback: manual read-modify-write
+
+Without shell/Node access — or for anything the CLI doesn't cover — read
+and rewrite the file directly. Always work against the **freshest** copy —
+re-read right before writing, don't rely on a stale in-memory copy — to
+avoid clobbering a concurrent edit from the browser. Typical reaction:
 
 1. Optionally set `agentStatus` to a short "working" message (no `rev` bump
    needed — this is a pure heartbeat, not a content change).
