@@ -48,5 +48,3 @@ Although this can be used for regular agentic work (like coding, research etc.),
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-Can we change the style a bit? we based this on my request for it to be Notion-like, but I don't want people thinking this is Notion-like.
