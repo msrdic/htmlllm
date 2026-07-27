@@ -13,6 +13,7 @@ To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the ag
 - **simple**: no server, database, API or setup, just a simple markdown-based block editor communicating with a session on your machine
 - **agent is a reviewer**: posts comments on paragraphs, replies to your comments
 - **brief** vs. **explanatory** mode: the style of agent's comments
+- a basic **work-in-progress** stack for monitoring ongoing agentic work
 - **basic export**: click Export, it opens a panel with complete markdown (content only, not revision comments); copy it and paste it where you need it
 
 ## Requirements
@@ -42,4 +43,10 @@ This was tested mainly with **Claude**. With an agent that lacks a monitor-like 
 
 Can it use an API instead of local session? Yes, probably, but my focus was on almost zero-setup.
 
-Although this can be used for regular agentic work (like coding etc), the visibility of what's going on is limited (compared to what you would actually see in a session).
+Although this can be used for regular agentic work (like coding, research etc.), the granularity of what's going on is limited, compared to what you would actually see in a session. You get a basic view of work in progress and that's it.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Can we change the style a bit? we based this on my request for it to be Notion-like, but I don't want people thinking this is Notion-like.
