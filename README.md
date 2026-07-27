@@ -14,7 +14,7 @@ To be a bit tongue-in-cheek: don't get caught again saying "I don't know, the ag
 - **agent is a reviewer**: posts comments on paragraphs, replies to your comments
 - **brief** vs. **explanatory** mode: the style of agent's comments
 - a basic **work-in-progress** stack for monitoring ongoing agentic work
-- **basic export**: click Export, it opens a panel with complete markdown (content only, not revision comments); copy it and paste it where you need it
+- basic **export**: click Export, it opens a panel with complete markdown (content only, not revision comments); copy it and paste it where you need it
 
 ## Requirements
 - chromium-based browser (Chrome, Brave) or Edge with **File System Access API** enabled
