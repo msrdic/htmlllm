@@ -217,9 +217,15 @@ avoid clobbering a concurrent edit from the browser. Typical reaction:
 - **Markdown** is supported in both paragraphs and comments: `#`/`##`/`###`
   headers, `**bold**`, `*italic*` (no `_underscore_` form — avoids breaking
   `snake_case` identifiers), `~~strike~~`, `++underline++`, `` `code` ``,
-  `[text](url)`, `![alt](path)` for images (external files only, relative
-  path — never base64; see the "Files" note on why `.json` stays lean), and
-  reference-style `[text][id]` / shorthand `[id]` with a `[id]: url`
+  fenced ` ``` ` code blocks (language name after the opening fence is kept
+  as a class but not syntax-highlighted; content is never markdown-processed),
+  backslash-escapes for literal punctuation (e.g. `\*not italic\*` — note
+  this can't escape a backtick out of forming a code span, matching
+  CommonMark), nested bulleted/numbered lists (indent a line deeper than its
+  parent marker to nest it — any deeper indent counts, no fixed 2-vs-4-space
+  rule), `[text](url)`, `![alt](path)` for images (external files only,
+  relative path — never base64; see the "Files" note on why `.json` stays
+  lean), reference-style `[text][id]` / shorthand `[id]` with a `[id]: url`
   definition line, and GFM-style pipe tables (header row, `---` separator
   row with optional `:---`/`:---:`/`---:` alignment, body rows) — scoped
   per-paragraph (each block renders independently; there's no whole-document
