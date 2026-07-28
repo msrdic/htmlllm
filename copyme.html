@@ -389,6 +389,9 @@
   }
   .md-content .md-ref { line-height: 1.6; }
   .md-content .md-ref a { word-break: break-all; }
+  .md-content .md-table { border-collapse: collapse; margin: .4em 0; max-width: 100%; display: block; overflow-x: auto; font-size: .95em; }
+  .md-content .md-table th, .md-content .md-table td { border: 1px solid var(--border); padding: 4px 10px; text-align: left; }
+  .md-content .md-table th { background: var(--hover-bg); font-weight: 600; }
   .icon-btn {
     border: none;
     background: none;
@@ -537,6 +540,7 @@
       <tr><td><code>[text](url)</code></td><td>Link</td></tr>
       <tr><td><code>![alt](path)</code></td><td>Image — path is relative to the doc's folder, e.g. an <code>images/</code> subfolder you create yourself</td></tr>
       <tr><td><code>[text][1]</code> or <code>[1]</code><br><code>[1]: url</code></td><td>Reference-style link — cite as <code>[1]</code> anywhere in the paragraph, define <code>[1]: url</code> on its own line; renders as a small numbered reference list at the bottom of that paragraph</td></tr>
+      <tr><td><code>| A | B |</code><br><code>|---|---|</code><br><code>| 1 | 2 |</code></td><td>Table — header row, then a separator row of dashes, then body rows. Use <code>:---</code>, <code>:---:</code>, or <code>---:</code> in the separator to align a column left/center/right. Leading/trailing <code>|</code> are optional.</td></tr>
     </table>
     <p class="help-note">Markdown works the same way in comments as in paragraphs.</p>
   </section>
@@ -979,6 +983,34 @@ if (typeof window === "undefined") {
     t = t.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codeSpans[Number(i)]}</code>`);
     return t;
   }
+  // GFM-style pipe table: a header row, a separator row of ---/:--/--:/:-:
+  // cells, then zero or more body rows. Leading/trailing pipes are optional.
+  const TABLE_SEP_RE = /^ {0,3}\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
+  function isTableSeparatorRow(line) {
+    return line.includes("-") && TABLE_SEP_RE.test(line);
+  }
+  function splitTableRow(line) {
+    let l = line.trim();
+    if (l.startsWith("|")) l = l.slice(1);
+    if (l.endsWith("|") && !l.endsWith("\\|")) l = l.slice(0, -1);
+    const cells = [];
+    let cur = "";
+    for (let idx = 0; idx < l.length; idx++) {
+      const ch = l[idx];
+      if (ch === "\\" && l[idx + 1] === "|") { cur += "|"; idx++; continue; }
+      if (ch === "|") { cells.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+  function tableCellAlign(sepCell) {
+    const left = sepCell.startsWith(":"), right = sepCell.endsWith(":");
+    if (left && right) return "center";
+    if (right) return "right";
+    if (left) return "left";
+    return "";
+  }
   function renderMarkdown(src, blockId) {
     const rawLines = String(src || "").split("\n");
 
@@ -1026,6 +1058,24 @@ if (typeof window === "undefined") {
         if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
         html += `<li>${mdInline(line.replace(/^ {0,3}\d+\.\s+/, ""), refs)}</li>`;
         i++; continue;
+      }
+      if (line.includes("|") && i + 1 < lines.length && isTableSeparatorRow(lines[i + 1])) {
+        closeList();
+        const headerCells = splitTableRow(line);
+        const aligns = splitTableRow(lines[i + 1]).map(tableCellAlign);
+        i += 2;
+        const bodyRows = [];
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+          bodyRows.push(splitTableRow(lines[i]));
+          i++;
+        }
+        const alignAttr = (idx) => aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "";
+        html += `<table class="md-table"><thead><tr>` +
+          headerCells.map((c, idx) => `<th${alignAttr(idx)}>${mdInline(c, refs)}</th>`).join("") +
+          `</tr></thead><tbody>` +
+          bodyRows.map((row) => `<tr>` + row.map((c, idx) => `<td${alignAttr(idx)}>${mdInline(c, refs)}</td>`).join("") + `</tr>`).join("") +
+          `</tbody></table>`;
+        continue;
       }
       closeList();
       html += line.trim() === "" ? "<br>" : `<div class="md-line">${mdInline(line, refs)}</div>`;
