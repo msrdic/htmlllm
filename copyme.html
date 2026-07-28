@@ -372,6 +372,8 @@
   .md-content h4, .md-content h5, .md-content h6 { font-size: 1em; }
   .md-content blockquote { margin: .3em 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--muted); }
   .md-content code { background: var(--hover-bg-strong); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  .md-content pre.md-code-block { background: var(--hover-bg-strong); padding: 10px 12px; border-radius: 6px; overflow-x: auto; margin: .4em 0; }
+  .md-content pre.md-code-block code { background: none; padding: 0; border-radius: 0; font-size: .85em; line-height: 1.5; white-space: pre; }
   .md-content ul, .md-content ol { margin: .2em 0; padding-left: 1.4em; }
   .md-content a { color: var(--accent); }
   .md-content img { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: .4em 0; }
@@ -561,7 +563,9 @@
       <tr><td><code>~~strike~~</code></td><td>Strikethrough</td></tr>
       <tr><td><code>++underline++</code></td><td>Underline (not standard Markdown, but <code>_underscore_</code> was ruled out for the same identifier-collision reason)</td></tr>
       <tr><td><code>`code`</code></td><td>Inline code — safe for function/variable names, e.g. <code>verify_implement()</code></td></tr>
-      <tr><td><code>- item</code> / <code>1. item</code></td><td>Bulleted / numbered list</td></tr>
+      <tr><td><code>```</code> ... <code>```</code></td><td>Fenced code block — an optional language name right after the opening fence (e.g. <code>```js</code>) is kept as a class for future syntax highlighting, but isn't highlighted today. Content inside is never interpreted as markdown.</td></tr>
+      <tr><td><code>- item</code> / <code>1. item</code></td><td>Bulleted / numbered list — indent an item further than its parent to nest a sub-list</td></tr>
+      <tr><td><code>\*</code>, <code>\_</code>, <code>\[</code>, etc.</td><td>Backslash-escape — write a literal special character instead of triggering its markdown meaning</td></tr>
       <tr><td><code>&gt; text</code></td><td>Blockquote</td></tr>
       <tr><td><code>[text](url)</code></td><td>Link</td></tr>
       <tr><td><code>![alt](path)</code></td><td>Image — path is relative to the doc's folder, e.g. an <code>images/</code> subfolder you create yourself</td></tr>
@@ -961,6 +965,11 @@ if (typeof window === "undefined") {
   }
 
   // ---------- minimal markdown renderer (headers, bold/italic, code, links, lists, quotes) ----------
+  // Sentinel for protected backslash-escapes -- built via fromCharCode
+  // rather than a literal escape sequence so it's unambiguously a single
+  // control character, distinct from the null-character sentinel that
+  // codeSpans below uses.
+  const ESC_MARK = String.fromCharCode(1);
   function mdInline(text, refs) {
     let t = escapeHtml(text);
     // Protect code spans first and restore them last, so backticked content
@@ -970,6 +979,16 @@ if (typeof window === "undefined") {
     t = t.replace(/`([^`]+)`/g, (m, code) => {
       codeSpans.push(code);
       return "\u0000" + (codeSpans.length - 1) + "\u0000";
+    });
+    // Backslash-escape protection — must run after code spans are pulled out
+    // (escapes inside code are literal, not processed) and before every
+    // syntax regex below, so e.g. \*not italic\* survives untouched instead
+    // of matching the emphasis regex. Restored to the bare character (no
+    // backslash) at the very end, once nothing else can reinterpret it.
+    const escapedChars = [];
+    t = t.replace(/\\([!"#$%&'()*+,\-./:;<=>?@\[\]^_`{|}~])/g, (m, ch) => {
+      escapedChars.push(ch);
+      return ESC_MARK + (escapedChars.length - 1) + ESC_MARK;
     });
     t = t.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     // Underline has no CommonMark syntax; using ++text++ since Markdown's own
@@ -1022,6 +1041,8 @@ if (typeof window === "undefined") {
     });
     // restore protected code spans now that no other regex can touch them
     t = t.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codeSpans[Number(i)]}</code>`);
+    // restore protected backslash-escapes to their bare character
+    t = t.replace(new RegExp(ESC_MARK + "(\\d+)" + ESC_MARK, "g"), (m, i) => escapedChars[Number(i)]);
     return t;
   }
   // GFM-style pipe table: a header row, a separator row of ---/:--/--:/:-:
@@ -1052,16 +1073,61 @@ if (typeof window === "undefined") {
     if (left) return "left";
     return "";
   }
+  // Nested lists: any line whose marker is indented deeper than the current
+  // list's own marker starts a sub-list nested inside the preceding <li>,
+  // recursively. No fixed indent width is assumed (2 vs 4 spaces both just
+  // mean "deeper than parent") -- lenient by design, not full CommonMark.
+  function listItemInfo(line) {
+    const m = line.match(/^( *)([-*]|\d+\.)\s+(.*)$/);
+    if (!m) return null;
+    return { indent: m[1].length, type: /^\d/.test(m[2]) ? "ol" : "ul", text: m[3] };
+  }
+  function parseList(lines, i, refs) {
+    const first = listItemInfo(lines[i]);
+    const baseIndent = first.indent;
+    const type = first.type;
+    const items = [];
+    while (i < lines.length) {
+      const info = listItemInfo(lines[i]);
+      if (!info || info.indent < baseIndent || info.type !== type) break;
+      if (info.indent > baseIndent) {
+        // Deeper than expected with no parent item collected yet -- treat as
+        // belonging to the last item rather than looping forever.
+        if (items.length === 0) break;
+        const nested = parseList(lines, i, refs);
+        items[items.length - 1].sub += nested.html;
+        i = nested.nextIndex;
+        continue;
+      }
+      let sub = "";
+      const itemText = mdInline(info.text, refs);
+      i++;
+      const next = i < lines.length ? listItemInfo(lines[i]) : null;
+      if (next && next.indent > baseIndent) {
+        const nested = parseList(lines, i, refs);
+        sub = nested.html;
+        i = nested.nextIndex;
+      }
+      items.push({ text: itemText, sub });
+    }
+    const html = `<${type}>` + items.map((it) => `<li>${it.text}${it.sub}</li>`).join("") + `</${type}>`;
+    return { html, nextIndex: i };
+  }
   function renderMarkdown(src, blockId) {
     const rawLines = String(src || "").split("\n");
 
-    // collect reference definitions ([id]: url), anywhere in the block, and drop them from normal flow
+    // collect reference definitions ([id]: url), anywhere in the block, and drop them from normal flow.
+    // Skips content inside fenced code blocks -- a code sample showing ref-
+    // link syntax shouldn't get silently stripped out as a real definition.
     const refs = { __blockId: blockId || "x" };
     const order = [];
     const defRe = /^ {0,3}\[([^\]]+)\]:\s*(\S+)\s*$/;
+    const fenceRe = /^ {0,3}```/;
     const lines = [];
+    let inFence = false;
     rawLines.forEach((line) => {
-      const d = line.match(defRe);
+      if (fenceRe.test(line)) { inFence = !inFence; lines.push(line); return; }
+      const d = !inFence && line.match(defRe);
       if (d) {
         const key = d[1].trim().toLowerCase();
         refs[key] = d[2];
@@ -1072,36 +1138,38 @@ if (typeof window === "undefined") {
     });
 
     let html = "";
-    let listType = null;
-    function closeList() { if (listType) { html += `</${listType}>`; listType = null; } }
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
+      const fence = line.match(/^ {0,3}```(\S*)\s*$/);
+      if (fence) {
+        const lang = fence[1];
+        i++;
+        const codeLines = [];
+        while (i < lines.length && !/^ {0,3}```\s*$/.test(lines[i])) { codeLines.push(lines[i]); i++; }
+        i++; // consume the closing fence (harmless no-op if unterminated)
+        const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+        html += `<pre class="md-code-block"><code${langClass}>${escapeHtml(codeLines.join("\n"))}</code></pre>`;
+        continue;
+      }
       const h = line.match(/^ {0,3}(#{1,6})\s+(.*)$/);
       if (h) {
-        closeList();
         html += `<h${h[1].length}>${mdInline(h[2], refs)}</h${h[1].length}>`;
         i++; continue;
       }
       if (/^ {0,3}>\s?/.test(line)) {
-        closeList();
         const quoteLines = [];
         while (i < lines.length && /^ {0,3}>\s?/.test(lines[i])) { quoteLines.push(lines[i].replace(/^ {0,3}>\s?/, "")); i++; }
         html += `<blockquote>${quoteLines.map((l) => mdInline(l, refs)).join("<br>")}</blockquote>`;
         continue;
       }
-      if (/^ {0,3}[-*]\s+/.test(line)) {
-        if (listType !== "ul") { closeList(); html += "<ul>"; listType = "ul"; }
-        html += `<li>${mdInline(line.replace(/^ {0,3}[-*]\s+/, ""), refs)}</li>`;
-        i++; continue;
-      }
-      if (/^ {0,3}\d+\.\s+/.test(line)) {
-        if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
-        html += `<li>${mdInline(line.replace(/^ {0,3}\d+\.\s+/, ""), refs)}</li>`;
-        i++; continue;
+      if (listItemInfo(line)) {
+        const result = parseList(lines, i, refs);
+        html += result.html;
+        i = result.nextIndex;
+        continue;
       }
       if (line.includes("|") && i + 1 < lines.length && isTableSeparatorRow(lines[i + 1])) {
-        closeList();
         const headerCells = splitTableRow(line);
         const aligns = splitTableRow(lines[i + 1]).map(tableCellAlign);
         i += 2;
@@ -1118,11 +1186,9 @@ if (typeof window === "undefined") {
           `</tbody></table>`;
         continue;
       }
-      closeList();
       html += line.trim() === "" ? "<br>" : `<div class="md-line">${mdInline(line, refs)}</div>`;
       i++;
     }
-    closeList();
 
     if (order.length) {
       html += `<div class="md-refs">` + order.map((key) => {
