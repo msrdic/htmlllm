@@ -216,8 +216,10 @@ avoid clobbering a concurrent edit from the browser. Typical reaction:
   `[text](url)`, `![alt](path)` for images (external files only, relative
   path — never base64; see the "Files" note on why `.json` stays lean), and
   reference-style `[text][id]` / shorthand `[id]` with a `[id]: url`
-  definition line — scoped per-paragraph (each block renders independently;
-  there's no whole-document markdown pass yet).
+  definition line, and GFM-style pipe tables (header row, `---` separator
+  row with optional `:---`/`:---:`/`---:` alignment, body rows) — scoped
+  per-paragraph (each block renders independently; there's no whole-document
+  markdown pass yet).
 - Keep replies grounded — verify things (read the actual file, fetch the
   actual source) rather than answering from assumption. This document's own
   content is largely about exactly that distinction.
