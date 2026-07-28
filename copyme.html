@@ -453,6 +453,18 @@
   .resolved-group[open] summary { margin-bottom: 6px; }
   .resolved-group .comment { opacity: .65; }
 
+  .archive-section-header {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin: 16px 0 8px;
+  }
+  .archive-section-header:first-child { margin-top: 0; }
+  .archived-text { font-size: 13.5px; margin-bottom: 8px; }
+  .archived-card { opacity: .85; }
+
   .compose { margin-top: 8px; display: none; }
   .compose.open { display: block; }
   textarea.thread-input {
@@ -675,7 +687,7 @@ const HtmlllmCore = (function () {
   // pulling the whole doc into context just to find the pending items.
   function pendingItems(data) {
     const items = [];
-    (data.paragraphs || []).forEach((p) => {
+    (data.paragraphs || []).filter((p) => !p.archived).forEach((p) => {
       if (p.pendingChange) {
         items.push({
           kind: "paragraph",
@@ -1213,11 +1225,20 @@ if (typeof window === "undefined") {
       HtmlllmCore.setResolvedNode(data, paragraphId, commentId, resolved);
     }, { type: resolved ? "comment-resolved" : "comment-reopened", paragraphId, commentId });
   }
-  async function deleteParagraph(id) {
+  // "Delete" archives rather than removes — paragraphs and their comments
+  // stay in the file (recoverable via restore) instead of vanishing with no
+  // trace, since the .json isn't git-tracked and there'd be no way back.
+  async function archiveParagraph(id) {
     await mutate((data) => {
-      const idx = data.paragraphs.findIndex((p) => p.id === id);
-      if (idx !== -1) data.paragraphs.splice(idx, 1);
-    }, { type: "paragraph-deleted", paragraphId: id });
+      const p = HtmlllmCore.findParagraph(data, id);
+      if (p) p.archived = true;
+    }, { type: "paragraph-archived", paragraphId: id });
+  }
+  async function restoreParagraph(id) {
+    await mutate((data) => {
+      const p = HtmlllmCore.findParagraph(data, id);
+      if (p) p.archived = false;
+    }, { type: "paragraph-restored", paragraphId: id });
   }
   async function setTone(tone) {
     await mutate((data) => {
@@ -1304,6 +1325,27 @@ if (typeof window === "undefined") {
         block.focus();
       }
     });
+    return card;
+  }
+
+  // Archived paragraphs have no live block to link back to — the whole
+  // paragraph text plus its full comment thread lives in this one card.
+  function renderArchivedParagraphCard(p) {
+    const card = document.createElement("div");
+    card.className = "thread-card archived-card";
+
+    const textEl = document.createElement("div");
+    textEl.className = "md-content archived-text";
+    textEl.innerHTML = renderMarkdown(p.text, p.id);
+    card.appendChild(textEl);
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.className = "thread-link restore-btn";
+    restoreBtn.textContent = "restore";
+    restoreBtn.onclick = () => restoreParagraph(p.id);
+    card.appendChild(restoreBtn);
+
+    (p.comments || []).forEach((c) => card.appendChild(renderCommentNode(p.id, c, true)));
     return card;
   }
 
@@ -1421,16 +1463,16 @@ if (typeof window === "undefined") {
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "icon-btn delete-btn";
-    deleteBtn.title = "Delete this paragraph";
+    deleteBtn.title = "Archive this paragraph";
     deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
     deleteBtn.onclick = () => {
       const totalComments = (function count(comments) {
         return (comments || []).reduce((sum, c) => sum + 1 + count(c.replies), 0);
       })(p.comments);
       const msg = totalComments
-        ? `Delete this paragraph and its ${totalComments} comment${totalComments === 1 ? "" : "s"}? This can't be undone.`
-        : "Delete this paragraph? This can't be undone.";
-      if (confirm(msg)) deleteParagraph(p.id);
+        ? `Archive this paragraph and its ${totalComments} comment${totalComments === 1 ? "" : "s"}? You can restore it later from the Archive drawer.`
+        : "Archive this paragraph? You can restore it later from the Archive drawer.";
+      if (confirm(msg)) archiveParagraph(p.id);
     };
     metaEl.appendChild(deleteBtn);
 
@@ -1542,7 +1584,7 @@ if (typeof window === "undefined") {
 
   function extractHeadings(data) {
     const headings = [];
-    data.paragraphs.forEach((p) => {
+    data.paragraphs.filter((p) => !p.archived).forEach((p) => {
       String(p.text || "").split("\n").forEach((line) => {
         const m = line.match(/^(#{1,6})\s+(.*)$/);
         if (m) headings.push({ id: p.id, level: m[1].length, title: m[2].trim() });
@@ -1583,13 +1625,17 @@ if (typeof window === "undefined") {
   }
 
   function renderStatsBar(data) {
-    const paragraphs = data.paragraphs.length;
-    const words = data.paragraphs.reduce((sum, p) => sum + String(p.text || "").trim().split(/\s+/).filter(Boolean).length, 0);
+    // Archived paragraphs are conceptually out of the doc, so they (and
+    // their comments) don't count here — they're tallied separately in the
+    // Archive drawer badge instead.
+    const live = data.paragraphs.filter((p) => !p.archived);
+    const paragraphs = live.length;
+    const words = live.reduce((sum, p) => sum + String(p.text || "").trim().split(/\s+/).filter(Boolean).length, 0);
     // Count threads (top-level comments), not every node — replies never carry
     // their own resolved state, they inherit it from the thread's top-level
     // comment, which is also what the UI collapses/hides on.
     let open = 0, resolved = 0;
-    data.paragraphs.flatMap((p) => p.comments || []).forEach((c) => {
+    live.flatMap((p) => p.comments || []).forEach((c) => {
       c.resolved ? resolved++ : open++;
     });
     statsCountsEl.innerHTML = `
@@ -1630,14 +1676,15 @@ if (typeof window === "undefined") {
 
   function render(data) {
     latestData = data;
+    const liveParagraphs = data.paragraphs.filter((p) => !p.archived);
     blocksEl.innerHTML = "";
-    if (data.paragraphs.length === 0) {
+    if (liveParagraphs.length === 0) {
       const hint = document.createElement("div");
       hint.className = "empty-hint";
       hint.textContent = "Nothing here yet — click + below to start writing.";
       blocksEl.appendChild(hint);
     }
-    data.paragraphs.forEach((p) => {
+    liveParagraphs.forEach((p) => {
       blocksEl.appendChild(renderInsertGap(p.id));
       blocksEl.appendChild(renderBlock(p));
       if (paragraphHasActiveDiscussion(p)) blocksEl.appendChild(renderThreadCard(p));
@@ -1645,15 +1692,34 @@ if (typeof window === "undefined") {
     blocksEl.appendChild(renderInsertGap(null, true));
 
     rightColEl.innerHTML = "";
-    const resolvedOnly = data.paragraphs.filter((p) => (p.comments || []).length > 0 && !paragraphHasActiveDiscussion(p));
-    resolvedOnly.forEach((p) => rightColEl.appendChild(renderThreadCard(p)));
+    const archivedParagraphs = data.paragraphs.filter((p) => p.archived);
+    const resolvedOnly = liveParagraphs.filter((p) => (p.comments || []).length > 0 && !paragraphHasActiveDiscussion(p));
     const resolvedCount = resolvedOnly.reduce((sum, p) => sum + (p.comments || []).filter((c) => c.resolved).length, 0);
-    if (resolvedCount === 0) {
+
+    if (archivedParagraphs.length) {
+      const header = document.createElement("div");
+      header.className = "archive-section-header";
+      header.textContent = "Archived paragraphs";
+      rightColEl.appendChild(header);
+      archivedParagraphs.forEach((p) => rightColEl.appendChild(renderArchivedParagraphCard(p)));
+    }
+    if (resolvedOnly.length) {
+      const header = document.createElement("div");
+      header.className = "archive-section-header";
+      header.textContent = "Resolved discussions";
+      rightColEl.appendChild(header);
+      resolvedOnly.forEach((p) => rightColEl.appendChild(renderThreadCard(p)));
+    }
+
+    if (archivedParagraphs.length === 0 && resolvedCount === 0) {
       resolvedToggleEl.classList.add("hidden");
       rightColEl.classList.remove("open");
     } else {
       resolvedToggleEl.classList.remove("hidden");
-      resolvedToggleEl.textContent = `${resolvedCount} resolved`;
+      const parts = [];
+      if (archivedParagraphs.length) parts.push(`${archivedParagraphs.length} archived`);
+      if (resolvedCount) parts.push(`${resolvedCount} resolved`);
+      resolvedToggleEl.textContent = parts.join(" · ");
     }
 
     attachThreadHandlers();
@@ -1800,7 +1866,7 @@ if (typeof window === "undefined") {
   const exportTextEl = document.getElementById("export-text");
   const exportCopiedEl = document.getElementById("export-copied");
   document.getElementById("export-btn").onclick = () => {
-    exportTextEl.value = latestData.paragraphs.map((p) => p.text).join("\n\n");
+    exportTextEl.value = latestData.paragraphs.filter((p) => !p.archived).map((p) => p.text).join("\n\n");
     exportCopiedEl.classList.add("hidden");
     exportDialog.showModal();
     exportTextEl.focus();
