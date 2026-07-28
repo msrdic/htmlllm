@@ -952,6 +952,18 @@ if (typeof window === "undefined") {
     // classic snake_case footgun; dropping it avoids that ambiguity entirely.
     t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    // bare URL auto-link — only http/https, matching the safety restriction
+    // on [text](url) below. The lookbehind skips exactly the "](" markdown-
+    // link case, not parens in general, so a plain "(https://x)" aside still
+    // gets linked. Runs before the [text](url) regex so that regex handles
+    // its own URLs instead of this one double-processing them.
+    t = t.replace(/(?<!\]\()(https?:\/\/[^\s<]+)/g, (url) => {
+      const trailMatch = url.match(/[.,;:!?)\]}]+$/);
+      const trail = trailMatch ? trailMatch[0] : "";
+      const cleanUrl = trail ? url.slice(0, -trail.length) : url;
+      if (!cleanUrl) return url;
+      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trail}`;
+    });
     // image: ![alt](url) — checked before the link syntax below so the `!`
     // is consumed and the pair doesn't also get matched as a plain link.
     // Unlike link hrefs (restricted to http/https), local relative paths
