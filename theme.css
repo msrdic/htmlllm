@@ -7,7 +7,7 @@
   --fg: #37352f;
   --muted: #9b9a97;
   --border: #ececea;
-  --accent: #2f6fed;
+  --accent: #c8763a;
   --hover-bg: rgba(55, 53, 47, 0.04);
   --hover-bg-strong: rgba(55, 53, 47, 0.09);
   --pending: #dfab01;
@@ -22,7 +22,7 @@
     --fg: #e9e9e7;
     --muted: #808080;
     --border: #2c2c2c;
-    --accent: #6ea8fe;
+    --accent: #e2a06a;
     --hover-bg: rgba(255, 255, 255, 0.055);
     --hover-bg-strong: rgba(255, 255, 255, 0.09);
     --pending: #e6c34d;
