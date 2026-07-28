@@ -330,19 +330,6 @@
   .work-item.done { color: var(--muted); }
   .work-item.done .work-dot { background: var(--resolved); animation: none; }
   .work-item .work-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #agent-ticker { display: flex; align-items: center; gap: 7px; transition: color .15s; }
-  #agent-ticker .ticker-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
-  #agent-ticker.working { color: var(--fg); }
-  #agent-ticker.working .ticker-dot {
-    background: var(--pending-edit);
-    animation: pulse 1.2s infinite ease-in-out;
-  }
 
   .block-wrap { position: relative; }
   .block-row {
@@ -620,7 +607,6 @@
 <div id="work-stack" class="hidden"></div>
 
 <div id="stats-bar" class="hidden">
-  <div id="agent-ticker"><span class="ticker-dot"></span><span class="ticker-text">Idle — watching for changes</span></div>
   <div id="stats-counts"></div>
 </div>
 
@@ -814,6 +800,12 @@ if (typeof window === "undefined") {
       const clearPending = flags.includes("--clear-pending");
 
       const data = readJson();
+      // Mechanical nudge, not documentation: if there's no open work item
+      // right now, say so in the tool output itself — a reminder that has
+      // to be re-read from a file is one that gets skipped under load.
+      if (!(data.workItems || []).some((w) => w.state === "working")) {
+        console.error("[reminder] no active work item — call work-start before doing the work, every reaction, not just the ones that feel big enough (see AGENTS.md)");
+      }
       const commentId = HtmlllmCore.addCommentNode(data, { paragraphId, text, parentCommentId, author });
       if (clearPending) HtmlllmCore.clearParagraphPending(data, paragraphId);
       HtmlllmCore.bumpRev(data, {
@@ -874,13 +866,11 @@ if (typeof window === "undefined") {
   const blocksEl = document.getElementById("blocks");
   const statsBarEl = document.getElementById("stats-bar");
   const statsCountsEl = document.getElementById("stats-counts");
-  const tickerEl = document.getElementById("agent-ticker");
   const connectBtnEl = document.getElementById("connect-btn");
   const newDocBtnEl = document.getElementById("new-doc-btn");
   const resolvedToggleEl = document.getElementById("resolved-toggle");
   const workStackEl = document.getElementById("work-stack");
   const toneButtons = Array.from(document.querySelectorAll(".tone-btn"));
-  let lastKnownStatusAt = 0;
   const WORK_ITEM_DISPLAY_MS = 10000; // how long a "done" item stays visible before archiving
 
   // ---------- IndexedDB handle persistence ----------
@@ -1571,13 +1561,6 @@ if (typeof window === "undefined") {
     `;
   }
 
-  function renderTicker(data) {
-    const status = data.agentStatus || { text: "Idle — watching for changes", state: "idle", at: 0 };
-    tickerEl.classList.toggle("working", status.state === "working");
-    tickerEl.querySelector(".ticker-text").textContent = status.text;
-    lastKnownStatusAt = status.at || 0;
-  }
-
   // Re-filters from in-memory data against the clock — no file I/O, so this
   // can tick independently of the 3s doc poll for a responsive auto-archive.
   function renderWorkStack(data) {
@@ -1635,7 +1618,6 @@ if (typeof window === "undefined") {
     updateToneButtons(data);
     renderToc(data);
     renderStatsBar(data);
-    renderTicker(data);
     renderWorkStack(data);
   }
 
@@ -1742,13 +1724,11 @@ if (typeof window === "undefined") {
       if (!fileHandle) return;
       try {
         const data = await readDoc();
-        // The activity ticker and work-stack are safe to update even mid-edit
-        // — neither touches document content, so both stay outside the
-        // isBusy() gate. latestData is kept fresh here too, independent of
-        // rev, so the 1s auto-archive tick below always has current data.
+        // The work-stack is safe to update even mid-edit — it never touches
+        // document content, so it stays outside the isBusy() gate.
+        // latestData is kept fresh here too, independent of rev, so the 1s
+        // auto-archive tick below always has current data.
         latestData = data;
-        const statusAt = (data.agentStatus && data.agentStatus.at) || 0;
-        if (statusAt !== lastKnownStatusAt) renderTicker(data);
         renderWorkStack(data);
         if (isBusy()) return; // don't yank the rug out from under an active edit
         if ((data.rev || 0) !== lastKnownRev) {
