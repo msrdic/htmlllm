@@ -159,11 +159,15 @@ Then, against that doc's `<name>.json`:
   are also pruned from the file on the next `work-start`/`work-done` call,
   so the array doesn't grow unbounded over a long session.
 
-For anything that's more than a single quick reply — a multi-step
-implementation, a longer investigation — use `work-start`/`work-done` per
-real step instead of relying on one `status` call at the start. A single
-static heartbeat for a five-minute task reads as "stuck," not "working";
-the work-item stack gives a live, itemized trail instead.
+Call `work-start` before doing the actual work for **every** reaction, not
+just ones that feel "big enough" — don't judge in the moment whether
+something qualifies as multi-step, because that judgment call is exactly
+where this fails in practice (a step that seemed too small to bother with
+in the moment is still invisible to the user watching the panel). Always
+push one, `work-done` it right before posting the reply. A single static
+`status` heartbeat for a five-minute task reads as "stuck," not "working";
+the work-item stack gives a live, itemized trail instead — but only if it's
+actually used every time, unconditionally.
 - `HTML="$HTML" node -e "$CORE" -- comment "$JSON" <paragraphId> <your-agent-name> "reply text" [--reply-to <commentId>] [--clear-pending]` —
   appends a top-level comment, or with `--reply-to` a reply; if `author` is
   anything other than `"user"`, the parent comment's `needsAgent` is cleared
