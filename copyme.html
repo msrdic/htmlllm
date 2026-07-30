@@ -125,6 +125,8 @@
     line-height: 1;
   }
   #help-btn:hover { background: var(--hover-bg); color: var(--fg); border-color: var(--accent); }
+  header.unsupported-browser .tone-toggle,
+  header.unsupported-browser > button { display: none; }
 
   .app-dialog {
     border: 1px solid var(--border);
@@ -184,14 +186,23 @@
   }
   .export-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   #export-copied { font-size: 12px; color: var(--resolved); }
-  button.primary {
-    background: var(--accent);
-    color: white;
-    border: none;
+  button.primary,
+  button.secondary {
     border-radius: 6px;
     padding: 6px 14px;
     font-size: 13px;
   }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border: 1px solid transparent;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  button.secondary:hover { background: var(--hover-bg-strong); }
 
   .tone-toggle {
     display: flex;
@@ -217,13 +228,21 @@
     padding: 104px 40px 60vh;
   }
   #connect-gate {
+    position: fixed;
+    top: 47px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     padding: 24px 20px;
     color: var(--muted);
-    max-width: 480px;
-    margin: 60px auto 0;
+    margin: 0;
   }
-  #connect-gate p { font-size: 14px; margin: 8px 0 20px; }
+  #connect-gate p { max-width: 480px; font-size: 14px; margin: 0 0 20px; }
   .connect-gate-actions { display: flex; gap: 10px; justify-content: center; }
   #connect-gate code { background: var(--hover-bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
   .hidden { display: none !important; }
@@ -537,7 +556,7 @@
       <text x="56" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="32" fill="currentColor">/&gt;</text>
     </svg>
   </span>
-  <span id="status">not connected</span>
+  <span id="status"></span>
   <div class="tone-toggle">
     <button class="tone-btn" data-tone="brief">Brief</button>
     <button class="tone-btn" data-tone="explanatory">Explanatory</button>
@@ -630,10 +649,10 @@
 
 <div id="page">
   <div id="connect-gate">
-    <p>Pick this document's <code>.json</code> data file — usually the one named after this HTML file, sitting beside it. You'll grant write access once; after that, edits and the agent's replies sync straight to disk.</p>
-    <div class="connect-gate-actions">
-      <button class="primary" id="connect-btn-2">Connect existing .json…</button>
-      <button id="new-doc-btn-2">Start a new doc…</button>
+    <p id="gate-message">Create a new document or connect an existing one to get started.</p>
+    <div id="gate-actions" class="connect-gate-actions">
+      <button class="primary" id="new-doc-btn-2">Create a new doc…</button>
+      <button class="secondary" id="connect-btn-2">Connect existing .json…</button>
     </div>
   </div>
 
@@ -1969,10 +1988,23 @@ if (typeof window === "undefined") {
     exportCopiedEl.classList.remove("hidden");
   };
 
-  if (!window.showOpenFilePicker) {
-    statusEl.textContent = "This browser doesn't support the File System Access API — use Chrome or Edge.";
-  } else {
+  const hasFSA = 'showOpenFilePicker' in window;
+  if (hasFSA) {
+    // Case 3: API available — auto-reconnect or show the create/connect gate
     tryAutoReconnect();
+  } else {
+    const isChromium = /Chrome|CriOS|Edg|EdgiOS/i.test(navigator.userAgent);
+    document.getElementById('gate-actions').classList.add('hidden');
+    document.querySelector('header').classList.add('unsupported-browser');
+    if (isChromium) {
+      // Case 2: Chromium-based but the #file-system-access flag is off
+      document.getElementById('gate-message').innerHTML =
+        "Your browser supports the File System Access API, but the experimental flag isn't turned on for <code>file://</code> URLs. Open <code>chrome://flags</code>, enable <code>#file-system-access</code>, and restart.";
+    } else {
+      // Case 1: not a Chromium-based browser at all
+      document.getElementById('gate-message').innerHTML =
+        "This browser doesn’t support the File System Access API.<br>Use a Chromium-based browser like Chrome, Brave, or Opera.";
+    }
   }
 })();
 </script>
