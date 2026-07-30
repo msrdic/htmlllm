@@ -1320,7 +1320,7 @@ if (typeof window === "undefined") {
     return openComposers.size > 0 || openReplies.size > 0;
   }
 
-  function renderCommentNode(paragraphId, c, isTopLevel) {
+  function renderCommentNode(paragraphId, c) {
     const wrap = document.createElement("div");
     wrap.className = "comment";
     // "user" is the one special-cased human value; anything else is treated
@@ -1329,7 +1329,11 @@ if (typeof window === "undefined") {
     // correctly with zero code changes needed per agent.
     const isAgent = c.author !== "user";
     const who = isAgent ? c.author.charAt(0).toUpperCase() + c.author.slice(1) : "You";
-    const resolveBtn = !isTopLevel ? "" : c.resolved
+    // Resolve is per-node, not just top-level: any comment (leaf or thread
+    // root) can be archived independently, taking only its own reply
+    // subtree with it — see renderCommentNode's recursive resolved-group
+    // split below, mirrored at the top level in renderThreadCard.
+    const resolveBtn = c.resolved
       ? `<button class="thread-link reopen-btn" data-pid="${paragraphId}" data-cid="${c.id}">reopen</button>`
       : `<button class="thread-link resolve-btn" data-pid="${paragraphId}" data-cid="${c.id}">resolve</button>`;
     wrap.innerHTML = `
@@ -1349,7 +1353,17 @@ if (typeof window === "undefined") {
       <div class="replies"></div>
     `;
     const repliesEl = wrap.querySelector(".replies");
-    (c.replies || []).forEach((r) => repliesEl.appendChild(renderCommentNode(paragraphId, r, false)));
+    const replies = c.replies || [];
+    const activeReplies = replies.filter((r) => !r.resolved);
+    const resolvedReplies = replies.filter((r) => r.resolved);
+    activeReplies.forEach((r) => repliesEl.appendChild(renderCommentNode(paragraphId, r)));
+    if (resolvedReplies.length) {
+      const det = document.createElement("details");
+      det.className = "resolved-group";
+      det.innerHTML = `<summary>${resolvedReplies.length} resolved</summary>`;
+      resolvedReplies.forEach((r) => det.appendChild(renderCommentNode(paragraphId, r)));
+      repliesEl.appendChild(det);
+    }
     return wrap;
   }
 
@@ -1362,13 +1376,13 @@ if (typeof window === "undefined") {
     const active = all.filter((c) => !c.resolved);
     const resolved = all.filter((c) => c.resolved);
 
-    active.forEach((c) => card.appendChild(renderCommentNode(p.id, c, true)));
+    active.forEach((c) => card.appendChild(renderCommentNode(p.id, c)));
 
     if (resolved.length) {
       const det = document.createElement("details");
       det.className = "resolved-group";
       det.innerHTML = `<summary>${resolved.length} resolved</summary>`;
-      resolved.forEach((c) => det.appendChild(renderCommentNode(p.id, c, true)));
+      resolved.forEach((c) => det.appendChild(renderCommentNode(p.id, c)));
       card.appendChild(det);
     }
 
@@ -1384,7 +1398,10 @@ if (typeof window === "undefined") {
     `;
     card.appendChild(composeWrap);
     card.addEventListener("click", (e) => {
-      if (e.target.closest("button, textarea, a")) return;
+      // Clicking a comment is for selecting/copying its text, not for
+      // jumping to the linked paragraph — only the card's own chrome
+      // (background, compose area) should do that.
+      if (e.target.closest("button, textarea, a, .comment")) return;
       const block = blocksEl.querySelector(`.block[data-id="${p.id}"]`);
       if (block) {
         block.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1411,7 +1428,7 @@ if (typeof window === "undefined") {
     restoreBtn.onclick = () => restoreParagraph(p.id);
     card.appendChild(restoreBtn);
 
-    (p.comments || []).forEach((c) => card.appendChild(renderCommentNode(p.id, c, true)));
+    (p.comments || []).forEach((c) => card.appendChild(renderCommentNode(p.id, c)));
     return card;
   }
 
@@ -1697,9 +1714,9 @@ if (typeof window === "undefined") {
     const live = data.paragraphs.filter((p) => !p.archived);
     const paragraphs = live.length;
     const words = live.reduce((sum, p) => sum + String(p.text || "").trim().split(/\s+/).filter(Boolean).length, 0);
-    // Count threads (top-level comments), not every node — replies never carry
-    // their own resolved state, they inherit it from the thread's top-level
-    // comment, which is also what the UI collapses/hides on.
+    // Count threads (top-level comments), not every node. Replies can now be
+    // resolved independently too, but this stat is meant to answer "how many
+    // discussions are still open," so it only looks at thread roots.
     let open = 0, resolved = 0;
     live.flatMap((p) => p.comments || []).forEach((c) => {
       c.resolved ? resolved++ : open++;
