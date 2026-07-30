@@ -3,6 +3,10 @@
    takes effect. Edit any value below; reload the page to see it. */
 
 :root {
+  /* Width of the paragraph/editor column (not theme-mode-specific, so it
+     isn't repeated in the dark-mode block below). */
+  --editor-width: 640px;
+
   --bg: #ffffff;
   --fg: #37352f;
   --muted: #9b9a97;
