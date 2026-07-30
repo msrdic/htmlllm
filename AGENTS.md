@@ -59,7 +59,14 @@ changes" below once you know the specific path.
 }
 ```
 
-`commentNode`: `{ id, author: "user" | <your agent name>, text (markdown), createdAt, needsAgent: bool, resolved: bool (meaningful on top-level comments only), replies: [commentNode, ...] }`
+`commentNode`: `{ id, author: "user" | <your agent name>, text (markdown), createdAt, needsAgent: bool, resolved: bool, replies: [commentNode, ...] }`
+
+`resolved` applies per-node, at any depth — resolving a comment (leaf or
+thread root) archives it together with its own reply subtree, independent
+of its parent or siblings. Resolving a node also clears `needsAgent` on
+that node and everything under it, so a stale `needsAgent: true` on a
+reply beneath a resolved ancestor doesn't mean it's still live (see "When
+to react" below).
 
 Identify yourself honestly: `"user"` is the one special-cased value (rendered
 as "You"); anything else in `author` or `lastEvent.by` is treated as an
@@ -122,9 +129,9 @@ Read the file. React to:
   genuine cross-check (does the edit contradict or resolve prior discussion?)
   rather than reacting generically.
 - Any comment, recursed through `replies`, with `needsAgent: true` — unless
-  it sits under a top-level comment with `resolved: true` (resolved threads
-  are closed; don't react inside them even if a stale `needsAgent: true`
-  lingers on a reply).
+  it or any ancestor has `resolved: true` (resolved comments — leaf or
+  thread root — are closed; don't react inside their subtree even if a
+  stale `needsAgent: true` lingers on a reply).
 
 ## How to react
 
@@ -204,8 +211,19 @@ avoid clobbering a concurrent edit from the browser. Typical reaction:
 
 ## Conventions to respect
 
-- **Tone**: check `settings.tone` (`"brief"` or `"explanatory"`) and match
-  your reply length/depth to it.
+- **Tone**: check `settings.tone` before writing every comment, not just once
+  per session — the user can flip it mid-conversation.
+  - `"brief"`: 1-3 sentences, no headers, no bullet lists, no restating what
+    the paragraph/comment already says. State the verdict/answer first; only
+    add a clause of justification if it's non-obvious. If a reply is
+    tempted to explain *how* you checked something, cut that — just the
+    result.
+  - `"explanatory"`: reasoning, multiple paragraphs, structure (lists/headers)
+    are all fine when the content warrants it.
+  - Audited past comments in this doc's history: under `"brief"`, replies
+    regularly ran 600-1000+ characters — that's `"explanatory"` length. If
+    a reply is heading past ~2 sentences under `"brief"`, cut it before
+    posting, don't rely on "matching depth" as a vibe.
 - **Never resolve a thread yourself** — `resolved` is a user action. You may
   suggest resolving in a reply, but don't set it.
 - **Don't edit paragraph text directly** unless the user has explicitly asked
