@@ -236,7 +236,7 @@
     max-height: calc(100vh - 100px);
     overflow-y: auto;
   }
-  #left-col { flex: 1 1 620px; max-width: 640px; min-width: 0; min-height: 60vh; }
+  #left-col { flex: 1 1 var(--editor-width, 640px); max-width: var(--editor-width, 640px); min-width: 0; min-height: 60vh; }
   /* Resolved threads live in a slide-in drawer, not the flex flow — closed
      by default even when populated, opened only via the tab or a click. */
   #right-col {
