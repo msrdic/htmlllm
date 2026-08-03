@@ -846,7 +846,8 @@ if (typeof window === "undefined") {
       // Mechanical nudge, not documentation: if there's no open work item
       // right now, say so in the tool output itself — a reminder that has
       // to be re-read from a file is one that gets skipped under load.
-      if (!(data.workItems || []).some((w) => w.state === "working")) {
+      const working = (data.workItems || []).some((w) => w.state === "working");
+      if (!working) {
         console.error("[reminder] no active work item — call work-start before doing the work, every reaction, not just the ones that feel big enough (see AGENTS.md)");
       }
       const commentId = HtmlllmCore.addCommentNode(data, { paragraphId, text, parentCommentId, author });
@@ -855,7 +856,12 @@ if (typeof window === "undefined") {
         type: parentCommentId ? "reply-added" : "comment-added",
         paragraphId, commentId, parentCommentId
       }, author);
-      HtmlllmCore.setAgentStatus(data, "idle", null);
+      // Commenting no longer means "finished". An agent running a long job
+      // reports progress *while* working, and forcing idle on every comment
+      // made the status panel unusable for exactly the case it exists for: any
+      // status set before a comment was wiped a second later. With an open work
+      // item the status is left alone; work-done clears it.
+      if (!working) HtmlllmCore.setAgentStatus(data, "idle", null);
       writeJson(data);
       console.log(JSON.stringify({ commentId, rev: data.rev }));
       return;
@@ -874,6 +880,12 @@ if (typeof window === "undefined") {
       const [workItemId] = rest;
       const data = readJson();
       HtmlllmCore.completeWorkItem(data, workItemId);
+      // Closing the last open item is what "finished" means now that comment
+      // no longer says it. Nested or overlapping items keep the status working
+      // until the outermost one closes.
+      if (!(data.workItems || []).some((w) => w.state === "working")) {
+        HtmlllmCore.setAgentStatus(data, "idle", null);
+      }
       writeJson(data);
       console.log(JSON.stringify({ ok: true }));
       return;
