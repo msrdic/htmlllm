@@ -1680,7 +1680,14 @@ if (typeof window === "undefined") {
   function extractHeadings(data) {
     const headings = [];
     data.paragraphs.filter((p) => !p.archived).forEach((p) => {
+      // Skip fenced code blocks. A shell comment like `# a recall` inside a
+      // ``` block is not a heading, but this used to file it in the TOC --
+      // so the outline listed sections the document does not have.
+      // renderMarkdown already tracks fences; this has to agree with it.
+      let inFence = false;
       String(p.text || "").split("\n").forEach((line) => {
+        if (/^ {0,3}```/.test(line)) { inFence = !inFence; return; }
+        if (inFence) return;
         const m = line.match(/^(#{1,6})\s+(.*)$/);
         if (m) headings.push({ id: p.id, level: m[1].length, title: m[2].trim() });
       });
