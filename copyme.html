@@ -355,6 +355,10 @@
   .block-row:hover { background: var(--hover-bg); }
   .block {
     flex: 1;
+    /* Without this a flex item's min-width is auto, so a wide code block's
+       intrinsic width pushes the whole row past the column instead of
+       letting pre.md-code-block's own overflow-x scroll it. */
+    min-width: 0;
     min-height: 1.6em;
     outline: none;
     white-space: pre-wrap;
