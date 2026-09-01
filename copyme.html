@@ -915,6 +915,16 @@ if (typeof window === "undefined") {
   let openReplies = new Set();   // comment ids with an open reply box
   let pollTimer = null;
   let latestData = { rev: 0, settings: { tone: "explanatory" }, paragraphs: [] };
+  // Set on mousedown when the press lands on a code block's scrollbar; read by
+  // enterEdit so grabbing the scrollbar doesn't open the paragraph for editing.
+  // Shared rather than per-block: only one block can be under the mouse, and a
+  // per-block document listener would leak one listener per render.
+  let suppressEdit = false;
+  document.addEventListener("mouseup", () => {
+    // mousedown -> focus -> mouseup -> click, so the reset has to outlive the
+    // click; a timeout runs after the whole dispatch sequence.
+    setTimeout(() => { suppressEdit = false; }, 0);
+  });
 
   const statusEl = document.getElementById("status");
   const gateEl = document.getElementById("connect-gate");
@@ -1487,7 +1497,19 @@ if (typeof window === "undefined") {
     block.innerHTML = renderMarkdown(p.text, p.id);
     block.dataset.id = p.id;
 
+    // A code block's horizontal scrollbar sits inside the paragraph's click
+    // surface, so grabbing it used to drop the reader into edit mode -- which
+    // also swaps the rendered HTML for raw text mid-drag. Overlay scrollbars
+    // (the macOS default) reserve no layout space, hence the band floor.
+    block.addEventListener("mousedown", (e) => {
+      const pre = e.target.closest && e.target.closest("pre.md-code-block");
+      const band = pre ? Math.max(pre.offsetHeight - pre.clientHeight, 14) : 0;
+      suppressEdit = !!pre && pre.scrollWidth > pre.clientWidth &&
+        e.clientY > pre.getBoundingClientRect().bottom - band;
+    }, true);
+
     function enterEdit() {
+      if (suppressEdit) return;
       if (block.classList.contains("editing")) return;
       block.classList.add("editing");
       block.contentEditable = "plaintext-only";
@@ -1514,6 +1536,12 @@ if (typeof window === "undefined") {
     });
     block.addEventListener("blur", async () => {
       setLinkedHighlight(p.id, false);
+      // Commit only if the block actually entered edit mode. It can be focused
+      // without that -- a scrollbar press focuses it while enterEdit bails --
+      // and in that state textContent is the *rendered* markdown flattened
+      // (fences, ###, ** and blank lines gone), so committing it destroys the
+      // source text.
+      if (!block.classList.contains("editing")) return;
       const newText = block.textContent;
       if (newText.trim() && newText !== p.text) {
         await editParagraph(p.id, newText); // triggers a full re-render on save
